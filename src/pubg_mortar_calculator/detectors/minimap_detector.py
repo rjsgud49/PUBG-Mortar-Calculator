@@ -11,9 +11,14 @@ class MinimapDetector:
             paths.map_detection_model(), ["map"], 0.2, 0.2
         )
 
-    def detect(self, image: np.ndarray) -> list[int] | None:
-        detections = self.detector.detect(image)
+    def detect(self, bgr_image: np.ndarray) -> list[int] | None:
+        detections = self.detector.detect(bgr_image)
+
         if len(detections) > 0:
             detection = max(detections, key=lambda i: i.confidence)
             return detection.box
         return None
+
+    def change_confidence(self, confidence: float):
+        self.detector.confidence = confidence
+        self.detector.iou_threshold = confidence

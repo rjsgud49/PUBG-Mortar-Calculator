@@ -1,3 +1,4 @@
 from .grid_detector import GridDetector
-from .mark_detector import MarkDetector
+from .hsv_mark_detector import HsvMarkDetector
 from .minimap_detector import MinimapDetector
+from .yolo_mark_detector import YoloMarkDetector

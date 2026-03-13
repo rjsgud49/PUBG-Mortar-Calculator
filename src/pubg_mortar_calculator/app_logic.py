@@ -16,7 +16,12 @@ from datetime import datetime
 from src import app_overlay
 from src.app_overlay import ChangeApp, Clear, CreateRect, CreateText, DrawBorders
 
-from .detectors import GridDetector, MarkDetector, MinimapDetector
+from .detectors import (
+    GridDetector,
+    HsvMarkDetector,
+    MinimapDetector,
+    YoloMarkDetector,
+)
 from .dictor_manager import DictorManager
 from .elevation_tools import ElevationTools
 from .logger import get_logger
@@ -57,11 +62,14 @@ class AppLogic:
             self.mortar_distances = [int(i) for i in file.readlines()]
 
         self.grid_detector = GridDetector()
-        self.mark_detector = MarkDetector()
+        self.hsv_mark_detector = HsvMarkDetector()
+        self.yolo_mark_detector = None
+        self._load_yolo_mark_detector()
 
         self.overlay = None
 
-        self._load_map_detector()
+        self.minimap_detector: MinimapDetector | None = None
+        self._load_minimap_detector()
 
         self.dictor_manager = DictorManager(
             self.app_ui.dictor_settings_block.rate_slider.get(),
@@ -84,9 +92,12 @@ class AppLogic:
 
         if (
             self.app_ui.minimap_detector_block.enabled_checkbox.get()
-            and self.map_detector is not None
+            and self.minimap_detector is not None
         ):
-            self.map_data.box = self.map_detector.detect(processed_image)
+            self.minimap_detector.change_confidence(
+                self.app_ui.minimap_detector_block.confidence_slider.get() / 100
+            )
+            self.map_data.box = self.minimap_detector.detect(processed_image)
             if self.map_data.box is not None:
                 x0, y0, x1, y1 = self.map_data.box
                 processed_image = imgpr.cut_to_points(
@@ -95,7 +106,7 @@ class AppLogic:
         else:
             self.map_data.box = None
 
-        canny_image = self.grid_detector.get_canny_frame(
+        canny_image = self.grid_detector.get_canny_image(
             processed_image,
             self.app_ui.grid_detector_block.canny1_threshold_slider.get(),
             self.app_ui.grid_detector_block.canny2_threshold_slider.get(),
@@ -110,18 +121,30 @@ class AppLogic:
 
         self.map_data.grid_gap = self.grid_detector.calculate_grid_gap(*lines)
 
-        if self.map_data.box is None:
-            self.mark_detector.remove_danger_zones(processed_image)
+        hsv_mask = None
+        if (
+            not self.app_ui.mark_detector_block.yolo_checkbox.get()
+            or self.yolo_mark_detector is None
+        ):
+            if self.map_data.box is None:
+                self.hsv_mark_detector.remove_danger_zones(processed_image)
 
-        hsv_mask = self.mark_detector.get_hsv_mask(
-            processed_image, self.app_ui.mark_detector_block.color_combobox.get()
-        )
-
-        self.map_data.player_position, self.map_data.mark_position = (
-            self.mark_detector.get_mark_positions(
-                hsv_mask, self.app_ui.mark_detector_block.max_radius_slider.get()
+            hsv_mask = self.hsv_mark_detector.get_hsv_mask(
+                processed_image, self.app_ui.mark_detector_block.color_combobox.get()
             )
-        )
+
+            self.map_data.player_position, self.map_data.mark_position = (
+                self.hsv_mark_detector.get_mark_positions(
+                    hsv_mask, self.app_ui.mark_detector_block.max_radius_slider.get()
+                )
+            )
+        else:
+            self.map_data.player_position, self.map_data.mark_position = (
+                self.yolo_mark_detector.get_player_and_mark_pos(
+                    processed_image,
+                    self.app_ui.mark_detector_block.color_combobox.get(),
+                )
+            )
 
         if (
             self.map_data.player_position is not None
@@ -139,14 +162,17 @@ class AppLogic:
         if self.app_ui.grid_detector_block.show_processed_image_checkbox.get():
             processed_image = cv2.cvtColor(canny_image, cv2.COLOR_GRAY2BGR)
 
-        elif self.app_ui.mark_detector_block.show_processed_image_checkbox.get():
+        elif (
+            self.app_ui.mark_detector_block.show_processed_image_checkbox.get()
+            and hsv_mask is not None
+        ):
             processed_image = cv2.cvtColor(hsv_mask, cv2.COLOR_GRAY2BGR)
 
         if self.app_ui.grid_detector_block.draw_grid_lines_checkbox.get():
             self.grid_detector.draw_lines(processed_image, *lines)
 
         if self.app_ui.mark_detector_block.draw_checkbox.get():
-            self.mark_detector.draw_marks(
+            self.hsv_mark_detector.draw_marks(
                 processed_image,
                 self.map_data.player_position,
                 self.map_data.mark_position,
@@ -197,11 +223,11 @@ class AppLogic:
         )
         cutted_center = imgpr.get_center_point(processed_image)
 
-        hsv_mask_image = self.mark_detector.get_hsv_mask(
+        hsv_mask_image = self.hsv_mark_detector.get_hsv_mask(
             processed_image, self.app_ui.mark_detector_block.color_combobox.get()
         )
 
-        self.elevation_data.mark_position = self.mark_detector.get_mark_positions(
+        self.elevation_data.mark_position = self.hsv_mark_detector.get_mark_positions(
             hsv_mask_image, self.app_ui.mark_detector_block.max_radius_slider.get()
         )[0]
 
@@ -435,15 +461,28 @@ class AppLogic:
             self.overlay.add_command(app_overlay.Stop())
             self.overlay = None
 
-    def _load_map_detector(self):
+    def _load_minimap_detector(self):
         if os.path.exists(paths.map_detection_model()):
-            self.map_detector = MinimapDetector()
+            self.minimap_detector = MinimapDetector()
         else:
             LOGGER.warning(
                 "Can't find minimap detection model at " + paths.map_detection_model()
             )
-            self.map_detector = None
+            self.minimap_detector = None
             self.app_ui.minimap_detector_block.enabled_checkbox.checkbox.configure(
                 state=tkinter.DISABLED
             )
             self.app_ui.minimap_detector_block.enabled_checkbox.set(False)
+
+    def _load_yolo_mark_detector(self):
+        if os.path.exists(paths.mark_detection_model()):
+            self.yolo_mark_detector = YoloMarkDetector()
+        else:
+            LOGGER.warning(
+                "Can't find mark detection model at " + paths.map_detection_model()
+            )
+            self.yolo_mark_detector = None
+            self.app_ui.mark_detector_block.yolo_checkbox.checkbox.configure(
+                state=tkinter.DISABLED
+            )
+            self.app_ui.mark_detector_block.yolo_checkbox.set(False)

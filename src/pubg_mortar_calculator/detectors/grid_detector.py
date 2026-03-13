@@ -16,7 +16,7 @@ class GridDetector:
         max_line_gap: float,
         line_merge_theshold: int,
     ) -> tuple[list, list]:
-        normalized_canny_frame = self._normalize_frame(canny_image)
+        normalized_canny_frame = self._normalize_image(canny_image)
 
         side_size = normalized_canny_frame.shape[0]
         line_threshold = int(line_threshold * side_size)
@@ -72,22 +72,22 @@ class GridDetector:
 
         return mode_gap
 
-    def _normalize_frame(self, frame: np.ndarray) -> np.ndarray:
+    def _normalize_image(self, image: np.ndarray) -> np.ndarray:
         max_resolution = (
-            frame.shape[0] if frame.shape[0] > frame.shape[1] else frame.shape[1]
+            image.shape[0] if image.shape[0] > image.shape[1] else image.shape[1]
         )
         self._normalize_multiplier = [
-            frame.shape[1] / max_resolution,
-            frame.shape[0] / max_resolution,
+            image.shape[1] / max_resolution,
+            image.shape[0] / max_resolution,
         ]
-        frame = cv2.resize(
-            frame, (max_resolution, max_resolution), interpolation=cv2.INTER_NEAREST
+        image = cv2.resize(
+            image, (max_resolution, max_resolution), interpolation=cv2.INTER_NEAREST
         )
-        return frame
+        return image
 
     @staticmethod
     def draw_lines(
-        image: np.ndarray,
+        bgr_image: np.ndarray,
         vertical_lines: list,
         horizontal_lines: list,
         vertical_lines_color=(255, 0, 0),
@@ -95,20 +95,24 @@ class GridDetector:
         trickness: float = 0.002,
     ) -> None:
         trickness = max(
-            1, int(((image.shape[1] * trickness) + (image.shape[0] * trickness)) / 2)
+            1,
+            int(
+                ((bgr_image.shape[1] * trickness) + (bgr_image.shape[0] * trickness))
+                / 2
+            ),
         )
 
         for x0, y0, x1, y1 in vertical_lines:
-            cv2.line(image, (x0, y0), (x1, y1), vertical_lines_color, trickness)
+            cv2.line(bgr_image, (x0, y0), (x1, y1), vertical_lines_color, trickness)
 
         for x0, y0, x1, y1 in horizontal_lines:
-            cv2.line(image, (x0, y0), (x1, y1), horizontal_lines_color, trickness)
+            cv2.line(bgr_image, (x0, y0), (x1, y1), horizontal_lines_color, trickness)
 
     @staticmethod
-    def get_canny_frame(
-        bgr_frame: np.ndarray, threshold1: int, threshold2: int, aperture_size: int = 3
+    def get_canny_image(
+        bgr_image: np.ndarray, threshold1: int, threshold2: int, aperture_size: int = 3
     ) -> np.ndarray:
-        gray_frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2GRAY)
+        gray_frame = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2GRAY)
         canny_frame = cv2.Canny(
             gray_frame, threshold1, threshold2, apertureSize=aperture_size
         )

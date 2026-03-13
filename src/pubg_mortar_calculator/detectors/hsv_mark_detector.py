@@ -4,12 +4,12 @@ import numpy as np
 from ..utils import imgpr
 
 
-class MarkDetector:
+class HsvMarkDetector:
     @staticmethod
     def get_mark_positions(
         hsv_mask: np.ndarray, max_radius: float
     ) -> tuple[tuple[int, int] | None, tuple[int, int] | None]:
-        contours = MarkDetector._find_contours(hsv_mask)
+        contours = HsvMarkDetector._find_contours(hsv_mask)
 
         player_cord = None
         mark_cord = None
@@ -32,14 +32,14 @@ class MarkDetector:
 
     @staticmethod
     def get_hsv_mask(
-        bgr_frame: np.ndarray,
+        bgr_image: np.ndarray,
         color: str,
         bluring_size: int = 3,
         bluring_threshold: int = 30,
     ) -> np.ndarray:
-        hsv_frame = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2HSV)
+        hsv_frame = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2HSV)
 
-        mask = cv2.inRange(hsv_frame, *MarkDetector._color_to_hsv_range(color))
+        mask = cv2.inRange(hsv_frame, *HsvMarkDetector._color_to_hsv_range(color))
 
         mask = cv2.GaussianBlur(mask, (bluring_size, bluring_size), 7)
 
@@ -49,15 +49,15 @@ class MarkDetector:
 
     @staticmethod
     def draw_marks(
-        image: np.ndarray,
+        bgr_image: np.ndarray,
         player_position: tuple[int, int] | None,
         mark_position: tuple[int, int] | None,
     ) -> np.ndarray:
         if player_position is not None:
-            imgpr.draw_point(image, player_position, "Player", (255, 0, 0))
+            imgpr.draw_point(bgr_image, player_position, "Player", (255, 0, 0))
         if mark_position is not None:
-            imgpr.draw_point(image, mark_position, "Mark", (0, 0, 255))
-        return image
+            imgpr.draw_point(bgr_image, mark_position, "Mark", (0, 0, 255))
+        return bgr_image
 
     @staticmethod
     def remove_danger_zones(image: np.ndarray):

@@ -33,6 +33,14 @@ class MarkDetectorBlock(ct.CTkFrame):
             default=True,
         ).grid(row=1, column=0, padx=5)
 
+        self.yolo_checkbox = Checkbox(
+            self,
+            text="Use Yolo",
+            command=on_update,
+            saving_id="mark_detection_yolo_checkbox",
+            default=False,
+        ).grid(row=1, column=1, padx=5)
+
         ct.CTkLabel(self, text="Mark Color: ").grid(row=2, column=0, padx=5, pady=5)
 
         self.color_combobox = Combobox(

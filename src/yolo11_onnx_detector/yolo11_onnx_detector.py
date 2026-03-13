@@ -1,8 +1,10 @@
-import onnxruntime
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
 import cv2
 import numpy as np
-from dataclasses import dataclass
-from typing import List, Tuple, Optional
+import onnxruntime
+
 
 @dataclass
 class Detection:
@@ -12,16 +14,29 @@ class Detection:
     class_name: Optional[str]
     class_nr: int
 
+
 class Yolo11OnnxDetector:
-    def __init__(self, model_path: str, classes: List[str] = [],
-                 confidence: float = 0.05,
-                 iou_threshold: float = 0.05) -> None:
-        self.session = onnxruntime.InferenceSession(model_path, providers=["CPUExecutionProvider"])
+    def __init__(
+        self,
+        model_path: str,
+        classes: List[str] = [],
+        confidence: float = 0.05,
+        iou_threshold: float = 0.05,
+    ) -> None:
+        self.session = onnxruntime.InferenceSession(
+            model_path, providers=["CPUExecutionProvider"]
+        )
         self.confidence = confidence
 
         self.input_shape = self.session.get_inputs()[0].shape
+
         self.width, self.height = self.input_shape[-1], self.input_shape[-2]
-        self.input_dtype = np.float16 if self.session.get_inputs()[0].type == "tensor(float16)" else np.float32
+
+        self.input_dtype = (
+            np.float16
+            if self.session.get_inputs()[0].type == "tensor(float16)"
+            else np.float32
+        )
 
         self.last_letterbox_offset = (0, 0)
         self.last_letterbox_multiplier = (1.0, 1.0)
@@ -37,9 +52,13 @@ class Yolo11OnnxDetector:
         return image
 
     def __inference(self, processed_image: np.ndarray) -> np.ndarray:
+
         input_name = self.session.get_inputs()[0].name
-        outputs = self.session.run(None, {input_name: processed_image})[0][0] # type: ignore
+
+        outputs = self.session.run(None, {input_name: processed_image})[0][0]  # type: ignore
+
         outputs = np.transpose(outputs, (1, 0))
+
         return outputs
 
     def __post_process_outputs(self, raw_outputs: np.ndarray) -> List[Detection]:
@@ -72,7 +91,9 @@ class Yolo11OnnxDetector:
         confidences_list = confidences.tolist()
 
         # Perform NMS
-        indices = cv2.dnn.NMSBoxes(boxes_int, confidences_list, self.confidence, self.iou_threshold)
+        indices = cv2.dnn.NMSBoxes(
+            boxes_int, confidences_list, self.confidence, self.iou_threshold
+        )
 
         detections = []
         if len(indices) > 0:
@@ -100,41 +121,55 @@ class Yolo11OnnxDetector:
                         (y + h) / self.height,
                     ]
 
-                class_name = self.classes[class_ids[i]] if 0 <= class_ids[i] < len(self.classes) else None
-                detections.append(Detection(
-                    box=[int(x), int(y), int(x + w), int(y + h)],
-                    normalized_box=normalized_box,
-                    confidence=float(confidences[i]),
-                    class_name=class_name,
-                    class_nr=int(class_ids[i])
-                ))
+                class_name = (
+                    self.classes[class_ids[i]]
+                    if 0 <= class_ids[i] < len(self.classes)
+                    else None
+                )
+                detections.append(
+                    Detection(
+                        box=[int(x), int(y), int(x + w), int(y + h)],
+                        normalized_box=normalized_box,
+                        confidence=float(confidences[i]),
+                        class_name=class_name,
+                        class_nr=int(class_ids[i]),
+                    )
+                )
         return detections
 
     def _get_color(self, class_id: int) -> tuple[int, int, int]:
         np.random.seed(class_id * 999)
-        return tuple(int(x) for x in np.random.randint(60, 255, size=3)) # type: ignore
+        return tuple(int(x) for x in np.random.randint(60, 255, size=3))  # type: ignore
 
-    def detect(self, image: np.ndarray, use_lettebox_resize:bool = True) -> List[Detection]:
+    def detect(
+        self, bgr_image: np.ndarray, use_lettebox_resize: bool = True
+    ) -> List[Detection]:
         if use_lettebox_resize:
-            self.last_original_image_size = (image.shape[1], image.shape[0])
-            (image, self.last_letterbox_offset, self.last_letterbox_multiplier) =\
-            self.letterbox_resize(image, (self.width, self.height))
+            self.last_original_image_size = (bgr_image.shape[1], bgr_image.shape[0])
+            (bgr_image, self.last_letterbox_offset, self.last_letterbox_multiplier) = (
+                self.letterbox_resize(bgr_image, (self.width, self.height))
+            )
         else:
             self.last_letterbox_offset, self.last_letterbox_offset = (0, 0), (1.0, 1.0)
             self.last_original_image_size = None
-        processed_image = self.__preprocess_image(image)
+
+        rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+
+        processed_image = self.__preprocess_image(rgb_image)
+
         raw_outputs = self.__inference(processed_image)
+
         self.last_detections = self.__post_process_outputs(raw_outputs)
+
         return self.last_detections
 
     def draw_last_detections(self, image: np.ndarray) -> None:
         h, w = image.shape[:2]
         for idx, det in enumerate(self.last_detections):
             x0, y0, x1, y1 = det.normalized_box
-            print(x0, y0, x1, y1)
 
-            x0, y0 = int(x0*w), int(y0*h)
-            x1, y1 = int(x1*w), int(y1*h)
+            x0, y0 = int(x0 * w), int(y0 * h)
+            x1, y1 = int(x1 * w), int(y1 * h)
             color = self._get_color(det.class_nr)
             cv2.rectangle(image, (x0, y0), (x1, y1), color, 2)
 
@@ -142,12 +177,23 @@ class Yolo11OnnxDetector:
             label = f"{class_label} {det.confidence:.2f}"
 
             (text_w, text_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 2, 5)
-            cv2.rectangle(image, (x0, y0 - text_h - 6), (x0 + text_w + 2, y0), color, -1)
-            cv2.putText(image, label, (x0 + 2, y0 - 4),
-                        cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 0), 5)
+            cv2.rectangle(
+                image, (x0, y0 - text_h - 6), (x0 + text_w + 2, y0), color, -1
+            )
+            cv2.putText(
+                image,
+                label,
+                (x0 + 2, y0 - 4),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                2,
+                (0, 0, 0),
+                5,
+            )
 
     @staticmethod
-    def letterbox_resize(image: np.ndarray, size: Tuple[int, int], fill_value: int = 114) -> Tuple[np.ndarray, Tuple[int, int], Tuple[float, float]]:
+    def letterbox_resize(
+        image: np.ndarray, size: Tuple[int, int], fill_value: int = 114
+    ) -> Tuple[np.ndarray, Tuple[int, int], Tuple[float, float]]:
         target_h, target_w = size
         h, w = image.shape[:2]
 
@@ -159,7 +205,7 @@ class Yolo11OnnxDetector:
         padded_img = np.full((target_h, target_w, 3), fill_value, dtype=image.dtype)
         top = (target_h - new_h) // 2
         left = (target_w - new_w) // 2
-        padded_img[top:top + new_h, left:left + new_w] = resized_img
+        padded_img[top : top + new_h, left : left + new_w] = resized_img
 
         offset = (left, top)
         multiplier = (scale, scale)

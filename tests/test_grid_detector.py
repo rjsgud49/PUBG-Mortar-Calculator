@@ -46,7 +46,7 @@ def test_grid_gap(expected_gap, image_path, scenario):
 
     settings = SL()
 
-    canny = grid_detector.get_canny_frame(
+    canny = grid_detector.get_canny_image(
         image,
         settings.get("grid_detection_canny1_threshold_slider"),
         settings.get("grid_detection_canny2_threshold_slider"),

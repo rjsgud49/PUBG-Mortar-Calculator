@@ -5,7 +5,7 @@ import cv2
 import pytest
 
 # Adjust this import to match your project structure
-from src.pubg_mortar_calculator.detectors import MarkDetector
+from src.pubg_mortar_calculator.detectors import YoloMarkDetector
 from src.pubg_mortar_calculator.settings_loader import SettingsLoader as SL
 
 FIXTURE_DIR = Path("tests/fixtures/marks")
@@ -57,41 +57,25 @@ def test_mark_detection(color, exp_px, exp_py, exp_mx, exp_my, image_path, scena
 
     settings = SL()
 
-    max_radius = settings.get(
-        "map_detection_max_radius_slider"
-    )  # Adjust key to match your SL
-
-    # 1. Clean up the image (modifies in-place)
-    MarkDetector.remove_danger_zones(image)
-
-    # 2. Get the HSV mask using the color extracted from the filename
-    hsv_mask = MarkDetector.get_hsv_mask(
-        image,
-        color=color,
-        # You can add SL().get() for bluring_size and bluring_threshold here if needed
-    )
+    detector = YoloMarkDetector()
 
     # 3. Get predictions
-    pred_player, pred_mark = MarkDetector.get_mark_positions(hsv_mask, max_radius)
+    player_pos, mark_pos = detector.get_player_and_mark_pos(image, color)
 
-    assert pred_player is not None or pred_mark is not None, (
-        f"Scenario: {scenario} ({color}) | Both predictions were None!"
-    )
+    assert player_pos is not None, "Can not find player mark position"
+    assert mark_pos is not None, "Can not find mark position"
 
     expected_player = (exp_px, exp_py)
     expected_mark = (exp_mx, exp_my)
 
     # Order-Agnostic Logic: Does P1=Player and P2=Mark? OR P1=Mark and P2=Player?
-    straight_match = points_match(pred_player, expected_player) and points_match(
-        pred_mark, expected_mark
-    )
-    swapped_match = points_match(pred_player, expected_mark) and points_match(
-        pred_mark, expected_player
+    straight_match = points_match(player_pos, expected_player) and points_match(
+        mark_pos, expected_mark
     )
 
     # The test passes if EITHER configuration is true
-    assert straight_match or swapped_match, (
+    assert straight_match, (
         f"Scenario: {scenario} ({color}) | "
         f"Expected: {expected_player} & {expected_mark} | "
-        f"Got: {pred_player} & {pred_mark}"
+        f"Got: {player_pos} & {mark_pos}"
     )

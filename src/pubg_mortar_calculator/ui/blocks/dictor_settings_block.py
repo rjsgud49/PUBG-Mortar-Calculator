@@ -9,6 +9,7 @@ class DictorSettingsBlock(ct.CTkFrame):
         super().__init__(master, fg_color="transparent", *args, **kwargs)
 
         self.columnconfigure(0, weight=1)
+        self.rowconfigure([0, 1, 2], weight=1)
 
         self.dictor_checkbox = Checkbox(
             self,
