@@ -5,7 +5,7 @@ from src.yolo11_onnx_detector import Yolo11OnnxDetector
 from ..utils import paths
 
 
-class MapDetector:
+class MinimapDetector:
     def __init__(self) -> None:
         self.detector = Yolo11OnnxDetector(
             paths.map_detection_model(), ["map"], 0.2, 0.2

@@ -11,7 +11,8 @@ from .blocks import (
     ElevationDetectorBlock,
     GeneralSettingsBlock,
     GridDetectorBlock,
-    MapDetectorBlock,
+    MarkDetectorBlock,
+    MinimapDetectorBlock,
     OverlaySettingsBlock,
 )
 
@@ -55,8 +56,9 @@ class App(ct.CTk, AppLogic):
         self.tabview = ct.CTkTabview(self.right_frame)
         self.tabview.add("General")
         self.tabview.add("Grid")
-        self.tabview.add("Map")
+        self.tabview.add("Mark")
         self.tabview.add("Elevation")
+        self.tabview.add("Minimap")
         self.tabview.add("Dictor")
         self.tabview.add("Overlay")
         self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
@@ -79,6 +81,11 @@ class App(ct.CTk, AppLogic):
         )
         self.elevation_detector_block.pack(fill="both", expand=True, padx=5, pady=5)
 
+        self.minimap_detector_block = MinimapDetectorBlock(
+            self.tabview.tab("Minimap"), self.process_map_image
+        )
+        self.minimap_detector_block.pack(fill="both", expand=True, padx=5, pady=5)
+
         self.grid_detector_block = GridDetectorBlock(
             self.tabview.tab("Grid"), self.process_map_image
         )
@@ -89,10 +96,10 @@ class App(ct.CTk, AppLogic):
             if path != "":
                 self.set_map_image(cv2.imread(path), False)
 
-        self.map_detector_block = MapDetectorBlock(
-            self.tabview.tab("Map"), self.process_map_image, on_map
+        self.mark_detector_block = MarkDetectorBlock(
+            self.tabview.tab("Mark"), self.process_map_image, on_map
         )
-        self.map_detector_block.pack(fill="both", expand=True, padx=5, pady=5)
+        self.mark_detector_block.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.overlay_settings_block = OverlaySettingsBlock(
             self.tabview.tab("Overlay"), self._initialize_overlay

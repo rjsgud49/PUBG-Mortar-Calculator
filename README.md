@@ -11,7 +11,7 @@ A tool to calculate the range of a shot for mortar in PUBG.
 - [X] Overlay
 - [X] Dictor
 - [ ] Calculating the distance of an airdrop 
-- [ ] Realtime calculation
+- [ ] Contineous realtime calculation
 
 ## Preview
 

@@ -16,7 +16,7 @@ from datetime import datetime
 from src import app_overlay
 from src.app_overlay import ChangeApp, Clear, CreateRect, CreateText, DrawBorders
 
-from .detectors import GridDetector, MapDetector, MarkDetector
+from .detectors import GridDetector, MarkDetector, MinimapDetector
 from .dictor_manager import DictorManager
 from .elevation_tools import ElevationTools
 from .logger import get_logger
@@ -83,7 +83,7 @@ class AppLogic:
         processed_image = self.map_image.copy()
 
         if (
-            self.app_ui.map_detector_block.minimap_detection.get()
+            self.app_ui.minimap_detector_block.enabled_checkbox.get()
             and self.map_detector is not None
         ):
             self.map_data.box = self.map_detector.detect(processed_image)
@@ -114,12 +114,12 @@ class AppLogic:
             self.mark_detector.remove_danger_zones(processed_image)
 
         hsv_mask = self.mark_detector.get_hsv_mask(
-            processed_image, self.app_ui.map_detector_block.color_combobox.get()
+            processed_image, self.app_ui.mark_detector_block.color_combobox.get()
         )
 
         self.map_data.player_position, self.map_data.mark_position = (
             self.mark_detector.get_mark_positions(
-                hsv_mask, self.app_ui.map_detector_block.max_radius_slider.get()
+                hsv_mask, self.app_ui.mark_detector_block.max_radius_slider.get()
             )
         )
 
@@ -139,13 +139,13 @@ class AppLogic:
         if self.app_ui.grid_detector_block.show_processed_image_checkbox.get():
             processed_image = cv2.cvtColor(canny_image, cv2.COLOR_GRAY2BGR)
 
-        elif self.app_ui.map_detector_block.show_processed_image_checkbox.get():
+        elif self.app_ui.mark_detector_block.show_processed_image_checkbox.get():
             processed_image = cv2.cvtColor(hsv_mask, cv2.COLOR_GRAY2BGR)
 
         if self.app_ui.grid_detector_block.draw_grid_lines_checkbox.get():
             self.grid_detector.draw_lines(processed_image, *lines)
 
-        if self.app_ui.map_detector_block.draw_checkbox.get():
+        if self.app_ui.mark_detector_block.draw_checkbox.get():
             self.mark_detector.draw_marks(
                 processed_image,
                 self.map_data.player_position,
@@ -155,7 +155,7 @@ class AppLogic:
         if (
             self.map_data.mark_position is not None
             and self.map_data.player_position is not None
-            and self.app_ui.map_detector_block.zoom_to_points_checkbox.get()
+            and self.app_ui.mark_detector_block.zoom_to_points_checkbox.get()
         ):
             processed_image = imgpr.cut_to_points(
                 processed_image,
@@ -198,11 +198,11 @@ class AppLogic:
         cutted_center = imgpr.get_center_point(processed_image)
 
         hsv_mask_image = self.mark_detector.get_hsv_mask(
-            processed_image, self.app_ui.map_detector_block.color_combobox.get()
+            processed_image, self.app_ui.mark_detector_block.color_combobox.get()
         )
 
         self.elevation_data.mark_position = self.mark_detector.get_mark_positions(
-            hsv_mask_image, self.app_ui.map_detector_block.max_radius_slider.get()
+            hsv_mask_image, self.app_ui.mark_detector_block.max_radius_slider.get()
         )[0]
 
         self._calculate_elevation_data()
@@ -437,13 +437,13 @@ class AppLogic:
 
     def _load_map_detector(self):
         if os.path.exists(paths.map_detection_model()):
-            self.map_detector = MapDetector()
+            self.map_detector = MinimapDetector()
         else:
             LOGGER.warning(
                 "Can't find minimap detection model at " + paths.map_detection_model()
             )
             self.map_detector = None
-            self.app_ui.map_detector_block.minimap_detection.checkbox.configure(
+            self.app_ui.minimap_detector_block.enabled_checkbox.checkbox.configure(
                 state=tkinter.DISABLED
             )
-            self.app_ui.map_detector_block.minimap_detection.set(False)
+            self.app_ui.minimap_detector_block.enabled_checkbox.set(False)

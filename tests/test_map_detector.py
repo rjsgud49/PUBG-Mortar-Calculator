@@ -5,7 +5,7 @@ import cv2
 import pytest
 
 # TODO: Replace with your actual YOLO detector import
-from src.pubg_mortar_calculator.detectors import MapDetector
+from src.pubg_mortar_calculator.detectors import MinimapDetector
 
 # Point to your minimaps fixture directory
 FIXTURE_DIR = Path("tests/fixtures/maps")
@@ -49,7 +49,7 @@ def test_minimap_bounding_box(
     expected_x0, expected_y0, expected_x1, expected_y1, image_path, scenario
 ):
     # Initialize your ONNX YOLO detector
-    detector = MapDetector()
+    detector = MinimapDetector()
     image = cv2.imread(image_path)
 
     assert image is not None, f"Failed to load image for {scenario} at: {image_path}"
