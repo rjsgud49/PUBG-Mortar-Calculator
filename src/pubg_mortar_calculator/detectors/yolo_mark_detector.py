@@ -24,8 +24,8 @@ class YoloMarkDetector:
                 "blue_ingame_mark",
                 "green_ingame_mark",
             ],
-            0.01,
-            0.01,
+            0.0,
+            0.0,
         )
 
     def get_player_and_mark_pos(

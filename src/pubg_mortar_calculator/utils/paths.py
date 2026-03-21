@@ -41,6 +41,10 @@ def map_detection_model() -> str:
     return os.path.join(assets(), "map_model.onnx")
 
 
+def airdrop_detection_model() -> str:
+    return os.path.join(assets(), "airdrop_model.onnx")
+
+
 def mark_detection_model() -> str:
     return os.path.join(assets(), "mark_model.onnx")
 

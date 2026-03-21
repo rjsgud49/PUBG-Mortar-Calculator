@@ -5,7 +5,7 @@ import cv2
 import pytest
 
 # Adjust this import to match your project structure
-from src.pubg_mortar_calculator.detectors import HsvMarkDetector
+from src.pubg_mortar_calculator.detectors import hsv_mark_detector
 from src.pubg_mortar_calculator.settings_loader import SettingsLoader as SL
 
 FIXTURE_DIR = Path("tests/fixtures/marks")
@@ -58,21 +58,27 @@ def test_mark_detection(color, exp_px, exp_py, exp_mx, exp_my, image_path, scena
     settings = SL()
 
     max_radius = settings.get(
-        "map_detection_max_radius_slider"
+        "mark_detection_max_radius_slider"
+    )  # Adjust key to match your SL
+
+    min_radius = settings.get(
+        "mark_detection_min_radius_slider"
     )  # Adjust key to match your SL
 
     # 1. Clean up the image (modifies in-place)
-    HsvMarkDetector.remove_danger_zones(image)
+    hsv_mark_detector.remove_danger_zones(image)
 
     # 2. Get the HSV mask using the color extracted from the filename
-    hsv_mask = HsvMarkDetector.get_hsv_mask(
+    hsv_mask = hsv_mark_detector.get_hsv_mask(
         image,
         color=color,
         # You can add SL().get() for bluring_size and bluring_threshold here if needed
     )
 
     # 3. Get predictions
-    pred_player, pred_mark = HsvMarkDetector.get_mark_positions(hsv_mask, max_radius)
+    pred_player, pred_mark = hsv_mark_detector.get_mark_positions(
+        hsv_mask, min_radius, max_radius
+    )
 
     assert pred_player is not None or pred_mark is not None, (
         f"Scenario: {scenario} ({color}) | Both predictions were None!"

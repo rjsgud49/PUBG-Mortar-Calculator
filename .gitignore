@@ -7,3 +7,4 @@ debug_files
 .VSCodeCounter
 .pytest_cache
 temp
+*.onnx

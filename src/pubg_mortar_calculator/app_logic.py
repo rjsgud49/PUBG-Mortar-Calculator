@@ -18,9 +18,9 @@ from src.app_overlay import ChangeApp, Clear, CreateRect, CreateText, DrawBorder
 
 from .detectors import (
     GridDetector,
-    HsvMarkDetector,
     MinimapDetector,
     YoloMarkDetector,
+    hsv_mark_detector,
 )
 from .dictor_manager import DictorManager
 from .elevation_tools import ElevationTools
@@ -62,7 +62,6 @@ class AppLogic:
             self.mortar_distances = [int(i) for i in file.readlines()]
 
         self.grid_detector = GridDetector()
-        self.hsv_mark_detector = HsvMarkDetector()
         self.yolo_mark_detector = None
         self._load_yolo_mark_detector()
 
@@ -127,15 +126,17 @@ class AppLogic:
             or self.yolo_mark_detector is None
         ):
             if self.map_data.box is None:
-                self.hsv_mark_detector.remove_danger_zones(processed_image)
+                hsv_mark_detector.remove_danger_zones(processed_image)
 
-            hsv_mask = self.hsv_mark_detector.get_hsv_mask(
+            hsv_mask = hsv_mark_detector.get_hsv_mask(
                 processed_image, self.app_ui.mark_detector_block.color_combobox.get()
             )
 
             self.map_data.player_position, self.map_data.mark_position = (
-                self.hsv_mark_detector.get_mark_positions(
-                    hsv_mask, self.app_ui.mark_detector_block.max_radius_slider.get()
+                hsv_mark_detector.get_mark_positions(
+                    hsv_mask,
+                    self.app_ui.mark_detector_block.min_radius_slider.get(),
+                    self.app_ui.mark_detector_block.max_radius_slider.get(),
                 )
             )
         else:
@@ -172,7 +173,7 @@ class AppLogic:
             self.grid_detector.draw_lines(processed_image, *lines)
 
         if self.app_ui.mark_detector_block.draw_checkbox.get():
-            self.hsv_mark_detector.draw_marks(
+            hsv_mark_detector.draw_marks(
                 processed_image,
                 self.map_data.player_position,
                 self.map_data.mark_position,
@@ -223,12 +224,14 @@ class AppLogic:
         )
         cutted_center = imgpr.get_center_point(processed_image)
 
-        hsv_mask_image = self.hsv_mark_detector.get_hsv_mask(
+        hsv_mask_image = hsv_mark_detector.get_hsv_mask(
             processed_image, self.app_ui.mark_detector_block.color_combobox.get()
         )
 
-        self.elevation_data.mark_position = self.hsv_mark_detector.get_mark_positions(
-            hsv_mask_image, self.app_ui.mark_detector_block.max_radius_slider.get()
+        self.elevation_data.mark_position = hsv_mark_detector.get_mark_positions(
+            hsv_mask_image,
+            self.app_ui.mark_detector_block.min_radius_slider.get(),
+            self.app_ui.mark_detector_block.max_radius_slider.get(),
         )[0]
 
         self._calculate_elevation_data()

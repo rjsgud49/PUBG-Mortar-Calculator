@@ -14,6 +14,10 @@ class Detection:
     class_name: Optional[str]
     class_nr: int
 
+    def center_position(self) -> tuple[int, int]:
+        x0, y0, x1, y1 = self.normalized_box
+        return (int((x0 + x1) / 2), int((y0 + y1) / 2))
+
 
 class Yolo11OnnxDetector:
     def __init__(

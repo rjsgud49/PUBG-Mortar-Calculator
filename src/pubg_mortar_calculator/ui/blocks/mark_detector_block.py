@@ -52,6 +52,17 @@ class MarkDetectorBlock(ct.CTkFrame):
         )
         self.color_combobox.grid(row=2, column=1, padx=5, pady=5)
 
+        self.min_radius_slider = Slider(
+            self,
+            "Mark Min Radius",
+            "mark_detection_min_radius_slider",
+            0,
+            50,
+            default=20,
+            command=lambda: on_update(),
+        )
+        self.min_radius_slider.grid(row=3, column=0, columnspan=2)
+
         self.max_radius_slider = Slider(
             self,
             "Mark Max Radius",
@@ -61,9 +72,9 @@ class MarkDetectorBlock(ct.CTkFrame):
             default=30,
             command=lambda: on_update(),
         )
-        self.max_radius_slider.grid(row=3, column=0, columnspan=2)
+        self.max_radius_slider.grid(row=4, column=0, columnspan=2)
 
         self.debug_load_map_preview_button = ct.CTkButton(
             self, text="Load Map Preview", command=on_map_preview
         )
-        self.debug_load_map_preview_button.grid(row=4, columnspan=2)
+        self.debug_load_map_preview_button.grid(row=5, columnspan=2)

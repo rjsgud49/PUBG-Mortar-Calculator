@@ -1,5 +1,5 @@
 import math
-from collections import Counter
+import statistics
 
 import cv2
 import numpy as np
@@ -66,11 +66,11 @@ class GridDetector:
         gaps.extend(vertical_gaps)
 
         if len(gaps):
-            mode_gap = round(GridDetector.mode(gaps))
+            median_gap = round(statistics.median(gaps))
         else:
-            mode_gap = None
+            median_gap = None
 
-        return mode_gap
+        return median_gap
 
     def _normalize_image(self, image: np.ndarray) -> np.ndarray:
         max_resolution = (
@@ -117,13 +117,6 @@ class GridDetector:
             gray_frame, threshold1, threshold2, apertureSize=aperture_size
         )
         return canny_frame
-
-    @staticmethod
-    def mode(data):
-        frequency = Counter(data)
-        max_count = max(frequency.values())
-        modes = [key for key, count in frequency.items() if count == max_count]
-        return sum(modes) / len(modes) if len(modes) > 1 else modes[0]
 
     @staticmethod
     def get_distance(
