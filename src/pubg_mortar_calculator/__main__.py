@@ -10,7 +10,7 @@ def main():
     from .logger import get_logger
     from .settings_loader import SettingsLoader
     from .ui.app import App
-    from .utils.screenshot import take_game_screenshot
+    from .utils.screenshot import take_screenshot
 
     LOGGER = get_logger()
 
@@ -21,27 +21,17 @@ def main():
                     if app.overlay is not None:
                         app.overlay.add_command(Clear())
                     time.sleep(0.1)
-                    app.set_map_image(
-                        take_game_screenshot(
-                            app.app_ui.general_settings_block.title_entry.get()
-                        )
-                    )
+                    app.set_map_image(take_screenshot())
                     time.sleep(0.5)
                 elif keyboard.is_pressed(app.get_elevation_key()):
-                    app.set_elevation_image(
-                        take_game_screenshot(
-                            app.app_ui.general_settings_block.title_entry.get()
-                        )
-                    )
+                    app.set_elevation_image(take_screenshot())
                     time.sleep(0.5)
                 elif keyboard.is_pressed(app.get_all_in_one_key()):
                     if app.overlay is not None:
                         app.overlay.add_command(Clear())
                     time.sleep(0.1)
 
-                    screenshot = take_game_screenshot(
-                        app.app_ui.general_settings_block.title_entry.get()
-                    )
+                    screenshot = take_screenshot()
                     app.set_map_image(screenshot, False)
                     app.set_elevation_image(screenshot)
 

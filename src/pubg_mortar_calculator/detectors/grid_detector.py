@@ -66,11 +66,11 @@ class GridDetector:
         gaps.extend(vertical_gaps)
 
         if len(gaps):
-            median_gap = round(statistics.median(gaps))
+            mode_gap = round(statistics.mode(gaps))
         else:
-            median_gap = None
+            mode_gap = None
 
-        return median_gap
+        return mode_gap
 
     def _normalize_image(self, image: np.ndarray) -> np.ndarray:
         max_resolution = (
