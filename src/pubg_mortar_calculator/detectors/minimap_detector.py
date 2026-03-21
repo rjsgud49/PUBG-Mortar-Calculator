@@ -16,7 +16,12 @@ class MinimapDetector:
 
         if len(detections) > 0:
             detection = max(detections, key=lambda i: i.confidence)
-            return detection.box
+            x0, y0, x1, y1 = detection.box
+
+            delta_x = abs(x1 - x0)
+            delta_y = abs(y1 - y0)
+            if abs(delta_x - delta_y) < min(delta_x, delta_y) / 3:
+                return detection.box
         return None
 
     def change_confidence(self, confidence: float):
