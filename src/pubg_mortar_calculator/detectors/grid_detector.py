@@ -34,7 +34,6 @@ class GridDetector:
 
         processed_lines = []
         for line in lines:
-            line = np.array(line[0])
             processed_lines.append(
                 [
                     round(line[0] * self._normalize_multiplier[0]),

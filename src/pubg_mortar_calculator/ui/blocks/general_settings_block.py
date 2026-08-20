@@ -1,6 +1,6 @@
 import customtkinter as ct
 
-from src.customtkinter_widgets import Checkbox, Entry
+from customtkinter_widgets import Checkbox, Entry
 
 
 class GeneralSettingsBlock(ct.CTkFrame):

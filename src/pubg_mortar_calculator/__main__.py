@@ -5,7 +5,7 @@ def main():
     import customtkinter
     import keyboard
 
-    from src.app_overlay import Clear
+    from app_overlay import Clear
 
     from .logger import get_logger
     from .settings_loader import SettingsLoader
@@ -37,7 +37,7 @@ def main():
 
             except ValueError:
                 time.sleep(1)
-            time.sleep(0.01)
+            time.sleep(0.1)
 
     def on_closing():
         settings_loader.save()

@@ -1,7 +1,7 @@
 import logging
 import sys
 
-from src.pubg_mortar_calculator.settings_loader import SettingsLoader
+from pubg_mortar_calculator.settings_loader import SettingsLoader
 
 comtypes_logger = logging.getLogger("comtypes")
 

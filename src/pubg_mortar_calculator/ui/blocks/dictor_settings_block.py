@@ -1,7 +1,7 @@
 import customtkinter as ct
 
 from pubg_mortar_calculator.dictor_manager import DictorManager
-from src.customtkinter_widgets import Checkbox, Slider
+from customtkinter_widgets import Checkbox, Slider
 
 
 class DictorSettingsBlock(ct.CTkFrame):

@@ -1,8 +1,8 @@
 import customtkinter as ct
 import cv2
 
-from src.customtkinter_widgets import Image
-from src.pubg_mortar_calculator import utils
+from customtkinter_widgets import Image
+from pubg_mortar_calculator import utils
 
 from ..app_logic import AppLogic
 from .blocks import (

@@ -1,6 +1,6 @@
 import customtkinter as ct
 
-from src.customtkinter_widgets import Checkbox, Combobox, Slider
+from customtkinter_widgets import Checkbox, Combobox, Slider
 
 
 class MarkDetectorBlock(ct.CTkFrame):

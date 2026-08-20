@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 from dataclasses import dataclass
 from datetime import datetime
 
-from src import app_overlay
-from src.app_overlay import ChangeApp, Clear, CreateRect, CreateText, DrawBorders
+import app_overlay
+from app_overlay import ChangeApp, Clear, CreateRect, CreateText, DrawBorders
 
 from .detectors import (
     GridDetector,

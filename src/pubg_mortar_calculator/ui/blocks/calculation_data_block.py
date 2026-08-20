@@ -1,6 +1,6 @@
 import customtkinter as ct
 
-from src.customtkinter_widgets import TitledBlock
+from customtkinter_widgets import TitledBlock
 
 
 class CalculationDataBlock(TitledBlock):

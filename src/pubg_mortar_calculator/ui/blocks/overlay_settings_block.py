@@ -1,6 +1,6 @@
 import customtkinter as ct
 
-from src.customtkinter_widgets import Checkbox, Slider
+from customtkinter_widgets import Checkbox, Slider
 
 
 class OverlaySettingsBlock(ct.CTkFrame):

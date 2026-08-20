@@ -1,6 +1,6 @@
 import numpy as np
 
-from src.yolo11_onnx_detector import Detection, Yolo11OnnxDetector
+from yolo11_onnx_detector import Detection, Yolo11OnnxDetector
 
 from ..utils import paths
 

@@ -1,48 +1,44 @@
-[tool.poetry]
+[project]
 name = "pubg_mortar_calculator"
-version = "4.2.3"
+version = "4.2.4"
 description = "A tool to calculate the range of a shot for mortar."
-authors = ["IZomBie <patrik009009@gmail.com>"]
-license = "You can use everything."
+authors = [{ name = "IZomBie", email = "patrik009009@gmail.com" }]
+license = { text = "You can use everything." }
 readme = "README.md"
-packages = [
-    { include = "pubg_mortar_calculator", from = "src" },
-    { include = "yolo11_onnx_detector", from = "src" },
-    { include = "app_overlay", from = "src" },
+requires-python = ">=3.13, <3.14"
+dependencies = [
+    "opencv-python>=4.10.0.84",
+    "mss>=10.0.0",
+    "screeninfo>=0.8.1",
+    "customtkinter>=5.2.2",
+    "pillow>=11.1.0",
+    "keyboard>=0.13.5",
+    "pyttsx3>=2.98",
+    "mouse>=0.7.1",
+    "pygetwindow>=0.0.9",
+    "pip>=25.2",
+    "tqdm>=4.67.1",
+    "onnxruntime>=1.23.2",
+    "pytest>=9.0.2",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.13"
-opencv-python = "^4.10.0.84"
-mss = "^10.0.0"
-screeninfo = "^0.8.1"
-customtkinter = "^5.2.2"
-pillow = "^11.1.0"
-keyboard = "^0.13.5"
-pyttsx3 = "^2.98"
-mouse = "^0.7.1"
-pygetwindow = "^0.0.9"
-pip = "^25.2"
-tqdm = "^4.67.1"
-onnxruntime = "^1.23.2"
-pytest = "^9.0.2"
-
-[[tool.poetry.source]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
-priority = "supplemental"
-
-[tool.poetry.group.train.dependencies]
-torch = { version = "*", source = "pytorch-cu128", optional = true }
-torchvision = { version = "*", source = "pytorch-cu128", optional = true }
-torchaudio = { version = "*", source = "pytorch-cu128", optional = true }
-matplotlib = "^3.10.7"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.scripts]
+[project.scripts]
 pubg_mortar_calculator = "pubg_mortar_calculator.__main__:main"
 yolo11_onnx_detector = "yolo11_onnx_detector.__main__:main"
 app_overlay = "app_overlay.__main__:main"
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "src/pubg_mortar_calculator",
+    "src/yolo11_onnx_detector",
+    "src/app_overlay",
+]

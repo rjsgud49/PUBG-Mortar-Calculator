@@ -8,3 +8,4 @@ debug_files
 .pytest_cache
 temp
 *.onnx
+.venv
