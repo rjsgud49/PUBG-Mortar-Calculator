@@ -14,30 +14,31 @@ def main():
 
     LOGGER = get_logger()
 
-    def listen_for_keys(app: App):
-        while True:
-            try:
-                if keyboard.is_pressed(app.get_calculation_key()):
-                    if app.overlay is not None:
-                        app.overlay.add_command(Clear())
-                    time.sleep(0.1)
-                    app.set_map_image(take_screenshot())
-                    time.sleep(0.5)
-                elif keyboard.is_pressed(app.get_elevation_key()):
-                    app.set_elevation_image(take_screenshot())
-                    time.sleep(0.5)
-                elif keyboard.is_pressed(app.get_all_in_one_key()):
-                    if app.overlay is not None:
-                        app.overlay.add_command(Clear())
-                    time.sleep(0.1)
+    def setup_key_listeners(app: App):
+        calc_key = app.get_calculation_key()
+        elev_key = app.get_elevation_key()
+        all_in_one_key = app.get_all_in_one_key()
 
-                    screenshot = take_screenshot()
-                    app.set_map_image(screenshot, False)
-                    app.set_elevation_image(screenshot)
-
-            except ValueError:
-                time.sleep(1)
+        def handle_calc():
+            if app.overlay is not None:
+                app.overlay.add_command(Clear())
             time.sleep(0.1)
+            app.set_map_image(take_screenshot())
+
+        def handle_elev():
+            app.set_elevation_image(take_screenshot())
+
+        def handle_all_in_one():
+            if app.overlay is not None:
+                app.overlay.add_command(Clear())
+            time.sleep(0.1)
+            screenshot = take_screenshot()
+            app.set_map_image(screenshot, False)
+            app.set_elevation_image(screenshot)
+
+        keyboard.add_hotkey(calc_key, handle_calc)
+        keyboard.add_hotkey(elev_key, handle_elev)
+        keyboard.add_hotkey(all_in_one_key, handle_all_in_one)
 
     def on_closing():
         settings_loader.save()
@@ -55,7 +56,7 @@ def main():
     app.protocol("WM_DELETE_WINDOW", on_closing)
 
     LOGGER.debug("Starting keyboard listeners...")
-    t = threading.Thread(target=listen_for_keys, args=(app,), daemon=True)
+    t = threading.Thread(target=setup_key_listeners, args=(app,), daemon=True)
     t.start()
 
     LOGGER.debug("Starting program...")
