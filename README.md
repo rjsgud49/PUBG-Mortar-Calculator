@@ -29,10 +29,10 @@ git clone https://github.com/IZomBiee/PUBG-Mortar-Calculator.git
 cd PUBG-Mortar-Calculator
 ```
 
-2. **Run with poetry:**
+2. **Run with uv:**
 ```bash
-poetry install
-poetry run pubg_mortar_calculator
+uv sync
+uv run pubg_mortar_calculator
 ```
 
 ## Using
