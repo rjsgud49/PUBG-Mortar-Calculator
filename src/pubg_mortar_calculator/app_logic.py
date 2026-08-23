@@ -19,6 +19,7 @@ from app_overlay import ChangeApp, Clear, CreateRect, CreateText, DrawBorders
 from .detectors import (
     GridDetector,
     MinimapDetector,
+    MinimapType,
     YoloMarkDetector,
     hsv_mark_detector,
 )
@@ -36,7 +37,7 @@ class MapData:
     grid_gap: int | None = None
     player_position: tuple[int, int] | None = None
     mark_position: tuple[int, int] | None = None
-    box: list[int] | None = None
+    minimap_type: MinimapType = MinimapType.NO_MINIMAP
 
 
 @dataclass
@@ -90,20 +91,14 @@ class AppLogic:
         processed_image = self.map_image.copy()
 
         if (
-            self.app_ui.minimap_detector_block.enabled_checkbox.get()
-            and self.minimap_detector is not None
+            self.app_ui.minimap_detector_block.enabled_checkbox.get() and
+            self.minimap_detector is not None
         ):
-            self.minimap_detector.change_confidence(
-                self.app_ui.minimap_detector_block.confidence_slider.get() / 100
-            )
-            self.map_data.box = self.minimap_detector.detect(processed_image)
-            if self.map_data.box is not None:
-                x0, y0, x1, y1 = self.map_data.box
-                processed_image = imgpr.cut_to_points(
-                    processed_image, (x0, y0), (x1, y1), 0
-                )[0]
+            self.map_data.minimap_type = self.minimap_detector.detect(processed_image)
+
+            processed_image = self.cut_to_minimap(processed_image)
         else:
-            self.map_data.box = None
+            self.map_data.minimap_type = MinimapType.NO_MINIMAP
 
         canny_image = self.grid_detector.get_canny_image(
             processed_image,
@@ -125,7 +120,7 @@ class AppLogic:
             not self.app_ui.mark_detector_block.yolo_checkbox.get()
             or self.yolo_mark_detector is None
         ):
-            if self.map_data.box is None:
+            if self.map_data.minimap_type == MinimapType.NO_MINIMAP:
                 hsv_mark_detector.remove_danger_zones(processed_image)
 
             hsv_mask = hsv_mark_detector.get_hsv_mask(
@@ -275,6 +270,28 @@ class AppLogic:
             processed_image[cut_y : processed_image.shape[0]]
         )
 
+    def cut_to_minimap(self, image: np.ndarray) -> np.ndarray:
+        if self.map_data.minimap_type == MinimapType.NO_MINIMAP:
+            return image
+        else:
+            height, width = image.shape[:2]
+            offset = int(width*(self.app_ui.minimap_detector_block.offset_slider.get()/10000))
+
+            x1 = width-offset
+            y1 = height-offset
+            if self.map_data.minimap_type == MinimapType.SMALL_MINIMAP:
+                x0 = width-offset-int(width*(self.app_ui.minimap_detector_block.small_minimap_size_slider.get()/5000))
+                y0 = height-offset-int(width*(self.app_ui.minimap_detector_block.small_minimap_size_slider.get()/5000))
+            else:
+                x0 = width-offset-int(width*(self.app_ui.minimap_detector_block.large_minimap_size_slider.get()/3000))
+                y0 = height-offset-int(width*(self.app_ui.minimap_detector_block.large_minimap_size_slider.get()/3000))
+
+            image = imgpr.cut_to_points(
+                    image, (x0, y0), (x1, y1), 0
+                )[0]
+
+            return image
+
     def set_map_image(self, image: np.ndarray, combat: bool = True):
         self.map_image = image
         self.process_map_image(combat)
@@ -396,6 +413,12 @@ class AppLogic:
         else:
             self.app_ui.map_data_block.set_value("Distance", "None")
 
+        minimap_types = ['No', 'Small', 'Large']
+        
+        self.app_ui.map_data_block.set_value(
+            "Minimap", minimap_types[self.map_data.minimap_type.value]
+        )
+
     def _load_saved_images(self):
         if os.path.exists(paths.map_preview()):
             self.map_image = cv2.imread(paths.map_preview())
@@ -426,15 +449,16 @@ class AppLogic:
             self.overlay.add_command(CreateText(text, 20, y, "red", 20))
             y += 30
 
-        if self.map_data.box is not None:
-            x0, y0, x1, y1 = self.map_data.box
-            scale = self.app_ui.overlay_settings_block.scale_slider.get() / 100
+        if self.map_data.minimap_type is not MinimapType.NO_MINIMAP:
+            # x0, y0, x1, y1 = self.map_data.minimap_type
+            # scale = self.app_ui.overlay_settings_block.scale_slider.get() / 100
 
-            self.overlay.add_command(
-                CreateRect(
-                    int(x0 / scale), int(y0 / scale), int(x1 / scale), int(y1 / scale)
-                )
-            )
+            # self.overlay.add_command(
+            #     CreateRect(
+            #         int(x0 / scale), int(y0 / scale), int(x1 / scale), int(y1 / scale)
+            #     )
+            # )
+            ...
 
     def _initialize_overlay(self):
         if self.app_ui.overlay_settings_block.enabled_checkbox.get():

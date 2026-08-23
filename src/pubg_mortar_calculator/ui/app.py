@@ -38,7 +38,7 @@ class App(ct.CTk, AppLogic):
         self.map_data_block = CalculationDataBlock(
             self.left_frame,
             "Map Data",
-            ["Grid Gap", "Mark Pos", "Player Pos", "Distance"],
+            ["Grid Gap", "Mark Pos", "Player Pos", "Distance", "Minimap"],
         )
         self.map_data_block.grid(row=1, column=0)
 

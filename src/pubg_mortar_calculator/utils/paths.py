@@ -36,7 +36,6 @@ def debug_files() -> str:
         os.mkdir(path)
     return path
 
-
 def map_detection_model() -> str:
     return os.path.join(assets(), "map_model.onnx")
 

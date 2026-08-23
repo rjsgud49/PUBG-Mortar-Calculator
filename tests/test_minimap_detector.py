@@ -4,12 +4,9 @@ from pathlib import Path
 import cv2
 import pytest
 
-# TODO: Replace with your actual YOLO detector import
-from src.pubg_mortar_calculator.detectors import MinimapDetector
+from src.pubg_mortar_calculator.detectors import MinimapDetector, MinimapType
 
-# Point to your minimaps fixture directory
 FIXTURE_DIR = Path("tests/fixtures/maps")
-
 
 def load_minimap_images():
     """Dynamically loads test cases and 4 coordinates from filenames."""
@@ -20,62 +17,46 @@ def load_minimap_images():
 
     for img_path in FIXTURE_DIR.iterdir():
         if img_path.is_file() and img_path.suffix.lower() in [".png", ".jpg", ".jpeg"]:
-            # Match filenames like "desert_zoom_10_20_150_200.jpg"
-            # Group 1: Scenario | Groups 2-5: x0, y0, x1, y1
             match = re.search(
-                r"^(.*)_(\d+)_(\d+)_(\d+)_(\d+)\.(png|jpg|jpeg)$",
+                r"^(.*)_(.*)_(.*)_(\d+)_(\d+)_(\d+)_(\d+)\.(png|jpg|jpeg)$",
                 img_path.name,
                 re.IGNORECASE,
             )
 
             if match:
-                scenario = match.group(1)
-                x0 = int(match.group(2))
-                y0 = int(match.group(3))
-                x1 = int(match.group(4))
-                y1 = int(match.group(5))
-
-                # Append tuple: (expected box, image_path, scenario)
-                test_cases.append((x0, y0, x1, y1, str(img_path), scenario))
+                minimap_type = match.group(1)
+                scenario = match.group(3)
+                test_cases.append((minimap_type, str(img_path), scenario))
 
     return test_cases
 
 
 @pytest.mark.parametrize(
-    "expected_x0, expected_y0, expected_x1, expected_y1, image_path, scenario",
+    "minimap_type, image_path, scenario",
     load_minimap_images(),
 )
-def test_minimap_bounding_box(
-    expected_x0, expected_y0, expected_x1, expected_y1, image_path, scenario
+def test_minimap_type(
+    minimap_type, image_path, scenario
 ):
-    # Initialize your ONNX YOLO detector
     detector = MinimapDetector()
     image = cv2.imread(image_path)
 
     assert image is not None, f"Failed to load image for {scenario} at: {image_path}"
 
-    # Get the prediction (assuming your method returns [x0, y0, x1, y1])
-    predicted_box = detector.detect(image)
+    predicted_minimap_type = detector.detect(image)
 
-    assert predicted_box is not None, (
-        f"Scenario: {scenario} | No bounding box detected!"
+    assert predicted_minimap_type != MinimapType.NO_MINIMAP, (
+        f"Scenario: {scenario} | No minimap detected!"
     )
+   
+    match minimap_type:
+        case "small":
+            truth_minimap_type = MinimapType.SMALL_MINIMAP
+        case "large":
+            truth_minimap_type = MinimapType.LARGE_MINIMAP
+        case _:
+            truth_minimap_type = MinimapType.NO_MINIMAP
 
-    pred_x0, pred_y0, pred_x1, pred_y1 = predicted_box
-
-    # YOLO predictions often flutter by a few pixels, so we use a tolerance
-    TOLERANCE = 20
-
-    # Check all four coordinates
-    assert pred_x0 == pytest.approx(expected_x0, abs=TOLERANCE), (
-        f"x0 mismatch in {scenario}"
-    )
-    assert pred_y0 == pytest.approx(expected_y0, abs=TOLERANCE), (
-        f"y0 mismatch in {scenario}"
-    )
-    assert pred_x1 == pytest.approx(expected_x1, abs=TOLERANCE), (
-        f"x1 mismatch in {scenario}"
-    )
-    assert pred_y1 == pytest.approx(expected_y1, abs=TOLERANCE), (
-        f"y1 mismatch in {scenario}"
+    assert predicted_minimap_type == truth_minimap_type, (
+        f"Type mismatch in {scenario} ({predicted_minimap_type}/{truth_minimap_type})"
     )

@@ -1,6 +1,6 @@
 [project]
 name = "pubg_mortar_calculator"
-version = "4.2.5"
+version = "4.3.0"
 description = "A tool to calculate the range of a shot for mortar."
 authors = [{ name = "IZomBie", email = "patrik009009@gmail.com" }]
 license = { text = "You can use everything." }
@@ -17,7 +17,6 @@ dependencies = [
     "mouse>=0.7.1",
     "pygetwindow>=0.0.9",
     "pip>=25.2",
-    "tqdm>=4.67.1",
     "onnxruntime>=1.23.2",
     "pytest>=9.0.2",
 ]
@@ -27,14 +26,20 @@ pubg_mortar_calculator = "pubg_mortar_calculator.__main__:main"
 yolo11_onnx_detector = "yolo11_onnx_detector.__main__:main"
 app_overlay = "app_overlay.__main__:main"
 
-[[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
-explicit = true
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "matplotlib>=3.11.1",
+    "onnxscript>=0.7.1",
+    "torch>=2.13.0",
+    "torchvision>=0.28.0",
+]
+
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cu126"
 
 [tool.hatch.build.targets.wheel]
 packages = [
