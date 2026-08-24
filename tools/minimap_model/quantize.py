@@ -1,18 +1,19 @@
-import torch, torchvision
-import torch.ao.quantization as quantization
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
-from dataset import SquarePad
-from model import MinimapModel
-from dataset import MinimapDataset
+
 import torch
-from onnxruntime.quantization import quantize_dynamic, QuantType
+import torch.ao.quantization as quantization
+import torchvision
+from dataset import MinimapDataset, SquarePad
 from model import MinimapModel
+from onnxruntime.quantization import QuantType, quantize_dynamic
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
 
 model = MinimapModel(num_classes=3, pretrained=False)
 
-model.load_state_dict(torch.load(Path("tools\\minimap_model\\best.pth"), map_location="cpu"))
+model.load_state_dict(
+    torch.load(Path("tools\\minimap_model\\best.pth"), map_location="cpu")
+)
 
 model.eval()
 
@@ -38,12 +39,12 @@ torch.onnx.export(
     input_names=["input"],
     output_names=["output"],
     dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
-    dynamo=False
+    dynamo=False,
 )
 
 int8_onnx_path = Path("tools\\minimap_model\\best_int8.onnx")
 quantize_dynamic(
     model_input=fp32_onnx_path,
     model_output=int8_onnx_path,
-    weight_type=QuantType.QUInt8
+    weight_type=QuantType.QUInt8,
 )

@@ -4,8 +4,8 @@ from pathlib import Path
 import cv2
 import pytest
 
-from src.pubg_mortar_calculator.detectors import GridDetector
-from src.pubg_mortar_calculator.settings_loader import SettingsLoader as SL
+from pubg_mortar_calculator.core.settings_loader import SettingsLoader as SL
+from pubg_mortar_calculator.detectors import GridDetector
 
 # Point to your new fixtures directory
 FIXTURE_DIR = Path("tests/fixtures/grids")

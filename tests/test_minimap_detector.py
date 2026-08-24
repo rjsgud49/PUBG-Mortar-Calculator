@@ -4,9 +4,10 @@ from pathlib import Path
 import cv2
 import pytest
 
-from src.pubg_mortar_calculator.detectors import MinimapDetector, MinimapType
+from pubg_mortar_calculator.detectors import MinimapDetector, MinimapType
 
 FIXTURE_DIR = Path("tests/fixtures/maps")
+
 
 def load_minimap_images():
     """Dynamically loads test cases and 4 coordinates from filenames."""
@@ -35,9 +36,7 @@ def load_minimap_images():
     "minimap_type, image_path, scenario",
     load_minimap_images(),
 )
-def test_minimap_type(
-    minimap_type, image_path, scenario
-):
+def test_minimap_type(minimap_type, image_path, scenario):
     detector = MinimapDetector()
     image = cv2.imread(image_path)
 
@@ -48,7 +47,7 @@ def test_minimap_type(
     assert predicted_minimap_type != MinimapType.NO_MINIMAP, (
         f"Scenario: {scenario} | No minimap detected!"
     )
-   
+
     match minimap_type:
         case "small":
             truth_minimap_type = MinimapType.SMALL_MINIMAP

@@ -1,19 +1,16 @@
-from typing import Any
-
-import os, cv2
-from torch.utils.data import Dataset
-import torchvision
-from pathlib import Path
-import matplotlib.pyplot as plt
-
 import os
 from pathlib import Path
 from typing import Any, Tuple
-import torch
-from torch.utils.data import Dataset
-from PIL import Image, ImageOps
 
-class MinimapDataset(Dataset): 
+import cv2
+import matplotlib.pyplot as plt
+import torch
+import torchvision
+from PIL import Image, ImageOps
+from torch.utils.data import Dataset
+
+
+class MinimapDataset(Dataset):
     def __init__(self, dataset_path: Path, train: bool = True, transform=None):
         self.transform = transform
 
@@ -36,7 +33,7 @@ class MinimapDataset(Dataset):
             if not img_path.exists():
                 continue
 
-            with open(label_path, 'r') as f:
+            with open(label_path, "r") as f:
                 line = f.readline().strip()
 
             if len(line) < 5:
@@ -62,6 +59,7 @@ class MinimapDataset(Dataset):
 
         return image, self.labels[index]
 
+
 class SquarePad:
     def __call__(self, img: Image.Image) -> Image.Image:
         w, h = img.size
@@ -70,12 +68,17 @@ class SquarePad:
         pad_top = (max_dim - h) // 2
         pad_right = max_dim - w - pad_left
         pad_bottom = max_dim - h - pad_top
-        
+
         padding = (pad_left, pad_top, pad_right, pad_bottom)
         return ImageOps.expand(img, padding, fill=0)
 
-if __name__ == '__main__':
-    dataset = MinimapDataset(Path(r"C:\Users\patri\Desktop\dataset"), True, transform=torchvision.transforms.Resize(224))
+
+if __name__ == "__main__":
+    dataset = MinimapDataset(
+        Path(r"C:\Users\patri\Desktop\dataset"),
+        True,
+        transform=torchvision.transforms.Resize(224),
+    )
 
     classes = ["No Minimap", "Small Minimap", "Large Minimap"]
 
@@ -90,7 +93,7 @@ if __name__ == '__main__':
 
         axes_flat[index].imshow(image.clamp(0, 1))
         axes_flat[index].set_title(classes[label])
-        axes_flat[index].axis('off')
+        axes_flat[index].axis("off")
         index += 1
         if index >= 16:
             break

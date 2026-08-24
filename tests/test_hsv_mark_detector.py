@@ -4,9 +4,10 @@ from pathlib import Path
 import cv2
 import pytest
 
+from pubg_mortar_calculator.core.settings_loader import SettingsLoader as SL
+
 # Adjust this import to match your project structure
-from src.pubg_mortar_calculator.detectors import hsv_mark_detector
-from src.pubg_mortar_calculator.settings_loader import SettingsLoader as SL
+from pubg_mortar_calculator.detectors import hsv_mark_detector
 
 FIXTURE_DIR = Path("tests/fixtures/marks")
 
