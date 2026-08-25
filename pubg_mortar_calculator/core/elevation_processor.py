@@ -5,9 +5,11 @@ import numpy as np
 
 from ..detectors import hsv_mark_detector
 from ..utils import imgpr
+from pubg_mortar_calculator.logger import get_logger
 from .elevation_tools import ElevationTools
 from .models import ElevationData, ElevationSettings, MarkSettings
 
+LOGGER = get_logger()
 
 class ElevationProcessor:
     def process(
@@ -67,4 +69,5 @@ class ElevationProcessor:
                 )
                 cv2.circle(cutted_img, data.mark_position, 2, (0, 255, 0), 5)
 
+        LOGGER.info(f"Elevation Calculation Results: {data}")
         return cutted_img[cut_y:], data

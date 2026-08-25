@@ -68,7 +68,7 @@ class AppLogic:
             mark_settings,
             minimap_settings,
         )
-        ImageStorage.save_map(self.map_image, general_settings.debug_mode)
+        ImageStorage.save_map(self.map_image, combat and general_settings.debug_mode)
 
         if dictor_settings.enabled and combat and self.map_data.distance:
             self.dictor.add(self.map_data.distance)
@@ -92,7 +92,7 @@ class AppLogic:
             elevation_settings,
             mark_settings,
         )
-        ImageStorage.save_elevation(self.elevation_image, general_settings.debug_mode)
+        ImageStorage.save_elevation(self.elevation_image, combat and general_settings.debug_mode)
 
         if (
             dictor_settings.enabled

@@ -12,7 +12,9 @@ from ..detectors import (
 )
 from ..utils import imgpr
 from .models import GridSettings, MapData, MarkSettings, MinimapSettings
+from pubg_mortar_calculator.logger import get_logger
 
+LOGGER = get_logger()
 
 class MapProcessor:
     def __init__(self):
@@ -91,6 +93,7 @@ class MapProcessor:
                 processed, map_data.mark_position, map_data.player_position
             )[0]
 
+        LOGGER.info(f"Map Calculation Results: {map_data}")
         return processed, map_data
 
     def _cut_to_minimap(
