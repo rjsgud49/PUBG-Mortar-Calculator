@@ -20,7 +20,9 @@ class OverlaySettings:
     enabled: bool
     draw_borders: bool
     scale: int
-
+    draw_minimap: bool
+    draw_map_marks: bool
+    draw_elevation_marks: bool
 
 @dataclass
 class MarkSettings:

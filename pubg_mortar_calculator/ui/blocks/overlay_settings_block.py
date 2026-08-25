@@ -23,6 +23,28 @@ class OverlaySettingsBlock(ct.CTkFrame):
             command=on_overlay_change,
         ).grid(row=0, column=1, padx=5, pady=5)
 
+        self.draw_map_marks_checkbox = Checkbox(
+            self,
+            text="Draw Map Marks",
+            saving_id="overlay_settings_draw_map_marks_checkbox",
+            command=on_overlay_change,
+        ).grid(row=1, column=0, padx=5, pady=5)
+
+        
+        self.draw_elevation_marks_checkbox = Checkbox(
+            self,
+            text="Draw Elevation Marks",
+            saving_id="overlay_settings_draw_elevation_marks_checkbox",
+            command=on_overlay_change,
+        ).grid(row=1, column=1, padx=5, pady=5)
+
+        self.draw_minimap_box_checkbox = Checkbox(
+            self,
+            text="Draw Minimap Box",
+            saving_id="overlay_settings_draw_minimap_box_checkbox",
+            command=on_overlay_change,
+        ).grid(row=2, column=0, columnspan=2, padx=5, pady=5)
+
         self.scale_slider = Slider(
             self,
             "Scale",
@@ -32,4 +54,4 @@ class OverlaySettingsBlock(ct.CTkFrame):
             100,
             command=on_overlay_change,
         )
-        self.scale_slider.grid(row=2, columnspan=2, padx=5, pady=5)
+        self.scale_slider.grid(row=3, columnspan=2, padx=5, pady=5)

@@ -98,10 +98,10 @@ class MapProcessor:
 
     def _cut_to_minimap(
         self, image: np.ndarray, minimap_type: MinimapType, settings: MinimapSettings
-    ) -> Tuple[np.ndarray, Tuple[int, int, int, int]]:
+    ) -> Tuple[np.ndarray, Tuple[int, int, int, int] | None]:
         h, w = image.shape[:2]
         if minimap_type == MinimapType.NO_MINIMAP:
-            return (image, (0, 0, w, h))
+            return (image, None)
         offset = int(w * (settings.offset / 10000))
         size_scale = (
             settings.small_size / 5000

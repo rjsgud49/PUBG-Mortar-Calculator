@@ -116,9 +116,9 @@ class App(ct.CTk):
         self.overlay_settings_block.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.overlay: None | AppOverlay = None
-        self._initialize_overlay()
 
         self._load_initial_previews()
+        self._initialize_overlay()
 
         self.hotkey_service = HotkeyService()
         self._update_all_hotkeys()
@@ -126,8 +126,6 @@ class App(ct.CTk):
     def _load_initial_previews(self):
         if self.logic.map_image is not None:
             self.process_map_image(combat=False)
-        if self.logic.elevation_image is not None:
-            self.process_elevation_image(combat=False)
 
     def _update_all_hotkeys(self):
         settings = self._get_general_settings()
@@ -163,6 +161,8 @@ class App(ct.CTk):
         
         self.map_image_preview.set_cv2(processed_img)
         self._update_map_data_ui(map_data)
+
+        self.process_elevation_image(False)
 
     def update_map_hotkey(self, key_str: str):
         self.hotkey_service.bind(
@@ -272,6 +272,9 @@ class App(ct.CTk):
             enabled=self.overlay_settings_block.enabled_checkbox.get(),
             draw_borders=self.overlay_settings_block.draw_borders_checkbox.get(),
             scale=self.overlay_settings_block.scale_slider.get(),
+            draw_map_marks=self.overlay_settings_block.draw_map_marks_checkbox.get(),
+            draw_elevation_marks=self.overlay_settings_block.draw_elevation_marks_checkbox.get(),
+            draw_minimap=self.overlay_settings_block.draw_minimap_box_checkbox.get()
         )
 
     def _update_map_data_ui(self, data):
