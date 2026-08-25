@@ -135,7 +135,7 @@ class App(ct.CTk):
         self.update_elevation_hotkey(settings.elevation_hotkey)
         self.update_all_in_one_hotkey(settings.all_in_one_hotkey)
 
-    def process_map_image(self, combat: bool = False):
+    def process_map_image(self, combat: bool = False, dictor: bool = True):
         if combat:
             if self.overlay is not None:
                 self.overlay.add_command(Clear())
@@ -145,12 +145,15 @@ class App(ct.CTk):
         if self.logic.map_image is None:
             return
 
+        dictor_settings=self._get_dictor_settings()
+        dictor_settings.enabled = dictor_settings.enabled and dictor
+
         processed_img, map_data = self.logic.set_map_image(
             self.logic.map_image,
             grid_settings=self._get_grid_settings(),
             mark_settings=self._get_mark_settings(),
             minimap_settings=self._get_minimap_settings(),
-            dictor_settings=self._get_dictor_settings(),
+            dictor_settings=dictor_settings,
             general_settings=self._get_general_settings(),
             combat=combat,
         )
@@ -208,7 +211,7 @@ class App(ct.CTk):
         self._update_elevation_data_ui(elev_data)
 
     def all_in_one_calculation(self):
-        self.process_map_image(True)
+        self.process_map_image(True, False)
         self.process_elevation_image(True)
 
     def _get_grid_settings(self) -> GridSettings:

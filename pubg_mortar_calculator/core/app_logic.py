@@ -70,7 +70,7 @@ class AppLogic:
         )
         ImageStorage.save_map(self.map_image, combat and general_settings.debug_mode)
 
-        if dictor_settings.enabled and combat and self.map_data.distance:
+        if dictor_settings.enabled and combat:
             self.dictor.add(self.map_data.distance)
 
         return processed_img, self.map_data
@@ -97,7 +97,6 @@ class AppLogic:
         if (
             dictor_settings.enabled
             and combat
-            and self.elevation_data.mortar_elevated_distance
         ):
             self.dictor.add(self.elevation_data.mortar_elevated_distance)
 
