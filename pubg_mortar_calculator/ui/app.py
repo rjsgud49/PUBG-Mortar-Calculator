@@ -158,7 +158,7 @@ class App(ct.CTk):
             combat=combat,
         )
 
-        if self.overlay is not None and combat:
+        if self.overlay is not None:
             self.logic.draw_to_overlay(self.overlay, self._get_overlay_settings())
         
         self.map_image_preview.set_cv2(processed_img)

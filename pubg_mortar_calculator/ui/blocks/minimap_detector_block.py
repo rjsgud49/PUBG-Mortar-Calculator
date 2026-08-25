@@ -24,7 +24,7 @@ class MinimapDetectorBlock(ct.CTkFrame):
             "minimap_detector_offset_slider",
             0,
             1000,
-            190,
+            170,
             command=on_update,
         )
         self.offset_slider.grid(row=1, column=0)
@@ -35,7 +35,7 @@ class MinimapDetectorBlock(ct.CTkFrame):
             "minimap_detector_small_minimap_size_slider",
             100,
             1000,
-            663,
+            673,
             command=on_update,
         )
         self.small_minimap_size_slider.grid(row=2, column=0)
@@ -46,7 +46,7 @@ class MinimapDetectorBlock(ct.CTkFrame):
             "minimap_detector_large_minimap_size_slider",
             100,
             1000,
-            700,
+            715,
             command=on_update,
         )
         self.large_minimap_size_slider.grid(row=3, column=0)

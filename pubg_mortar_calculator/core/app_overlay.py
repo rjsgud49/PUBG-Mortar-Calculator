@@ -43,6 +43,22 @@ class CreateRect:
     border_size: int = 3
     border_color: str = "purple"
 
+@dataclass
+class CreateCircle:
+    x0: int | float
+    y0: int | float
+    radious: int | float
+    border_size: int = 3
+    border_color: str = "blue"
+
+@dataclass
+class CreateLine:
+    x0: int | float
+    y0: int | float
+    x1: int | float
+    y1: int | float
+    thickness: int | float
+    color: str = "green"
 
 class AppOverlay:
     def __init__(self, target_app_title: str, fps: int = 20):
@@ -171,6 +187,66 @@ class AppOverlay:
                     y1,
                     outline=command.border_color,
                     width=command.border_size,
+                )
+            elif isinstance(command, CreateCircle):
+                if isinstance(command.x0, float):
+                    x0 = command.x0 * self.width
+                else:
+                    x0 = command.x0
+                if isinstance(command.y0, float):
+                    y0 = command.y0 * self.height
+                else:
+                    y0 = command.y0
+
+                if isinstance(command.radious, float):
+                    radius = command.radious * self.width
+                else:
+                    radius = command.radious
+
+                x0 = int(x0)
+                y0 = int(y0)
+                radius = int(radius)
+
+                self.canvas.create_oval(
+                    x0 - radius,
+                    y0 - radius,
+                    x0 + radius,
+                    y0 + radius,
+                    outline=command.border_color,
+                    width=command.border_size,
+                )
+            elif isinstance(command, CreateLine):
+                if isinstance(command.x0, float):
+                    x0 = command.x0 * self.width
+                else:
+                    x0 = command.x0
+                if isinstance(command.y0, float):
+                    y0 = command.y0 * self.height
+                else:
+                    y0 = command.y0
+
+                if isinstance(command.x1, float):
+                    x1 = command.x1 * self.width
+                else:
+                    x1 = command.x1
+
+                if isinstance(command.y1, float):
+                    y1 = command.y1 * self.height
+                else:
+                    y1 = command.y1
+
+                x0 = int(x0)
+                y0 = int(y0)
+                x1 = int(x1)
+                y1 = int(y1)
+
+                self.canvas.create_line(
+                    x0,
+                    y0,
+                    x1,
+                    y1,
+                    fill=command.color,
+                    width=command.thickness,
                 )
             elif isinstance(command, DrawBorders):
                 self.canvas.create_rectangle(

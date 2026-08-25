@@ -27,7 +27,7 @@ class ElevationProcessor:
         imgpr.replace_area_with_black(processed, (0, 0), (processed.shape[1], cut_y))
 
         data.center_position = imgpr.get_center_point(processed)
-        cutted_img, _ = imgpr.cut_x_line(processed, data.center_position[0], 0.02)
+        cutted_img, (x_start, x_end) = imgpr.cut_x_line(processed, data.center_position[0], 0.02)
         cutted_center = imgpr.get_center_point(cutted_img)
 
         hsv_mask = hsv_mark_detector.get_hsv_mask(cutted_img, mark_settings.color)
@@ -68,6 +68,8 @@ class ElevationProcessor:
                     cutted_img, cutted_center, data.mark_position, (0, 255, 0), 3
                 )
                 cv2.circle(cutted_img, data.mark_position, 2, (0, 255, 0), 5)
+
+        data.x_start = x_start
 
         LOGGER.info(f"Elevation Calculation Results: {data}")
         return cutted_img[cut_y:], data

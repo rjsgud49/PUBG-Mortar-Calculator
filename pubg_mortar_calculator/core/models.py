@@ -81,3 +81,4 @@ class ElevationData:
     center_position: tuple[int, int] | None = None
     elevated_distance: float | None = None
     mortar_elevated_distance: int | str | None = None
+    x_start: int = 0 
