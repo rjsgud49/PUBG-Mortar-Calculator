@@ -355,6 +355,7 @@ class App(ct.CTk):
         )
         self.map_image_preview.set_cv2(processed_image)
         self._update_map_data_ui(map_data)
+        self.process_elevation_image(False)
 
     def load_elevation_preview(self):
         image = self.logic.load_image()
@@ -370,11 +371,10 @@ class App(ct.CTk):
             False,
         )
 
-        processed_image, elevation_data = self.logic.set_map_image(
+        processed_image, elevation_data = self.logic.set_elevation_image(
             image,
-            self._get_grid_settings(),
+            self._get_elevation_settings(),
             self._get_mark_settings(),
-            self._get_minimap_settings(),
             self._get_dictor_settings(),
             self._get_general_settings(),
             False,

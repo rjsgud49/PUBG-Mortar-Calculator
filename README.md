@@ -15,7 +15,7 @@ A tool to calculate the range of a shot for mortar in PUBG.
 
 ## Preview
 
-### GUI Preview (v4.0.0)
+### GUI Preview (v4.5.3)
 ![GUI Preview](assets/app_preview.jpg)
 
 ### Ingame Minimap Preview
@@ -29,7 +29,11 @@ git clone https://github.com/IZomBiee/PUBG-Mortar-Calculator.git
 cd PUBG-Mortar-Calculator
 ```
 
-2. **Run with uv:**
+2. **Install minimap detection model (Optional but recommended):**
+   - Go to the project repository's **Releases** tab and find the latest release labeled `minimap classification model`.
+   - Download `map_model.onnx` and place it into the `assets/` folder.
+
+3. **Run with uv:**
 ```bash
 uv sync
 uv run pubg_mortar_calculator
