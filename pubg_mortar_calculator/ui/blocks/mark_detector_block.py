@@ -58,7 +58,7 @@ class MarkDetectorBlock(ct.CTkFrame):
             "mark_detection_min_radius_slider",
             0,
             50,
-            default=20,
+            default=5,
             command=lambda: on_update(),
         )
         self.min_radius_slider.grid(row=3, column=0, columnspan=2)

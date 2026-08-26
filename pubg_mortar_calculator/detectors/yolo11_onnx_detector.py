@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -22,7 +23,7 @@ class Detection:
 class Yolo11OnnxDetector:
     def __init__(
         self,
-        model_path: str,
+        model_path: Path,
         classes: List[str] = [],
         confidence: float = 0.05,
         iou_threshold: float = 0.05,
