@@ -1,9 +1,12 @@
 import customtkinter as ct
 import time
+import tkinter
 
 from pubg_mortar_calculator.customtkinter_widgets import Image
 from pubg_mortar_calculator.utils import take_screenshot
 
+from pubg_mortar_calculator.utils import paths
+from pubg_mortar_calculator.logger import get_logger
 from ..core.app_logic import AppLogic
 from ..core.app_overlay import *
 from ..core.hotkey_service import HotkeyService
@@ -27,6 +30,7 @@ from .blocks import (
     OverlaySettingsBlock,
 )
 
+LOGGER = get_logger()
 
 class App(ct.CTk):
     def __init__(self):
@@ -122,6 +126,24 @@ class App(ct.CTk):
 
         self.hotkey_service = HotkeyService()
         self._update_all_hotkeys()
+
+        if not paths.map_detection_model().exists():
+            LOGGER.warning(
+                "Can't find minimap detection model at " + paths.map_detection_model().as_posix()
+            )
+            self.minimap_detector_block.enabled_checkbox.checkbox.configure(
+                state=tkinter.DISABLED
+            )
+            self.minimap_detector_block.enabled_checkbox.set(False)
+
+        if not paths.mark_detection_model().exists():
+            LOGGER.warning(
+                "Can't find mark detection model at " + paths.mark_detection_model().as_posix()
+            )
+            self.mark_detector_block.yolo_checkbox.checkbox.configure(
+                state=tkinter.DISABLED
+            )
+            self.mark_detector_block.yolo_checkbox.set(False)
 
     def _load_initial_previews(self):
         if self.logic.map_image is not None:

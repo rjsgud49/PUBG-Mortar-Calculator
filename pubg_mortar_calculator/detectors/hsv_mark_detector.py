@@ -86,7 +86,7 @@ def __color_to_hsv_range(color: str) -> tuple[np.ndarray, np.ndarray]:
             hsv_min = (23, 137, 163)
             hsv_max = (36, 255, 240)
         case "blue":
-            hsv_min = (73, 129, 156)
+            hsv_min = (73, 65, 156)
             hsv_max = (117, 203, 224)
         case "green":
             hsv_min = (49, 101, 111)
