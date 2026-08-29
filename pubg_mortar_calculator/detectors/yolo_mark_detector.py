@@ -70,13 +70,12 @@ class YoloMarkDetector:
         return False
 
     def make_samples(self, image: np.ndarray, positions: list[tuple[int, int, float]],
-                    margin_multiplier: float = 0.1) -> list[tuple[tuple[int, int], np.ndarray]]:
+                    margin_multiplier: float = 3) -> list[tuple[tuple[int, int], np.ndarray]]:
         samples = []
         height, width = image.shape[:2]
 
-        margin = round(max(image.shape[:2])*margin_multiplier)
-
         for x, y, r in positions:
+            margin = round(r*margin_multiplier)
             x_min = max(0, x - margin)
             x_max = min(width, x + margin)
             y_min = max(0, y - margin)

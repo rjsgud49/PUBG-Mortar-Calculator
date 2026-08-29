@@ -47,7 +47,7 @@ class ElevationTools:
         )
 
         if discriminant < 0:
-            return 0
+            return 1000
 
         sqrt_term = math.sqrt(discriminant)
 

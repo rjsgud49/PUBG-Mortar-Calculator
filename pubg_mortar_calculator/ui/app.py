@@ -177,14 +177,14 @@ class App(ct.CTk):
             general_settings=self._get_general_settings(),
             combat=combat,
         )
-
-        if self.overlay is not None:
-            self.logic.draw_to_overlay(self.overlay, self._get_overlay_settings())
         
         self.map_image_preview.set_cv2(processed_img)
         self._update_map_data_ui(map_data)
 
         self.process_elevation_image(False)
+
+        if self.overlay is not None:
+            self.logic.draw_to_overlay(self.overlay, self._get_overlay_settings())
 
     def update_map_hotkey(self, key_str: str):
         self.hotkey_service.bind(
