@@ -33,7 +33,11 @@ cd PUBG-Mortar-Calculator
    - Go to the project repository's **Releases** tab and find the latest release labeled `minimap classification model`.
    - Download `map_model.onnx` and place it into the `assets/` folder.
 
-3. **Run with uv:**
+3. **Install mark detection model (Optional but recommended):**
+   - Go to the project repository's **Releases** tab and find the latest release that have `YOLO` in it.
+   - Download `mark_model.onnx` and place it into the `assets/` folder.
+
+4. **Run with uv:**
 ```bash
 uv sync
 uv run pubg_mortar_calculator
