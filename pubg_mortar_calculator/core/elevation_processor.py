@@ -30,7 +30,7 @@ class ElevationProcessor:
         cutted_img, (x_start, x_end) = imgpr.cut_x_line(processed, data.center_position[0], 0.02)
         cutted_center = imgpr.get_center_point(cutted_img)
 
-        hsv_mask = hsv_mark_detector.get_hsv_mask(cutted_img, mark_settings.color)
+        hsv_mask = hsv_mark_detector.get_hsv_mask(cutted_img, mark_settings.color, 19, 1)
         data.mark_position = hsv_mark_detector.get_mark_positions(
             hsv_mask, mark_settings.min_radius, mark_settings.max_radius
         )[0]

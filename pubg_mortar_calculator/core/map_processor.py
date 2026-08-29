@@ -52,19 +52,20 @@ class MapProcessor:
         map_data.grid_gap = self.grid_detector.calculate_grid_gap(*lines)
 
         hsv_mask = None
+        if map_data.minimap_type == MinimapType.NO_MINIMAP:
+            hsv_mark_detector.remove_danger_zones(processed)
         if not mark_settings.use_yolo or yolo_detector is None:
-            if map_data.minimap_type == MinimapType.NO_MINIMAP:
-                hsv_mark_detector.remove_danger_zones(processed)
-            hsv_mask = hsv_mark_detector.get_hsv_mask(processed, mark_settings.color)
+            hsv_mask = hsv_mark_detector.get_hsv_mask(processed, mark_settings.color, 3, 30)
             map_data.player_position, map_data.mark_position = (
                 hsv_mark_detector.get_mark_positions(
                     hsv_mask, mark_settings.min_radius, mark_settings.max_radius
                 )
             )
         else:
-            map_data.player_position, map_data.mark_position = (
-                yolo_detector.get_player_and_mark_pos(processed, mark_settings.color)
-            )
+            hsv_mask = hsv_mark_detector.get_hsv_mask(processed, mark_settings.color, 19, 1)
+            positions = hsv_mark_detector.get_all_positions(hsv_mask)
+            samples = yolo_detector.make_samples(processed, positions)
+            map_data.player_position, map_data.mark_position = yolo_detector.get_player_and_mark_pos(samples, mark_settings.color)
 
         if map_data.player_position and map_data.mark_position and map_data.grid_gap:
             map_data.distance = self.grid_detector.get_distance(

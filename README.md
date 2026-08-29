@@ -48,6 +48,6 @@ uv run pubg_mortar_calculator
 ## Revised Technical Notes
 - **Marker Detection System**: The marker detection uses a basic (dumb) algorithm that detects the circle with the largest radius in a given range. Because of this, it may occasionally misidentify objects. However, with precise tuning, it is reliable in most cases.
 - **Display Settings**: The bot is incompatible with HDR or any settings that alter colors, such as colorblind modes or GPU driver color tweaks.
-- **Window Mode**: The bot is not designed for Fullscreen mode. In Fullscreen, the overlay will not function, and if the image is stretched, grid detection will produce incorrect results.w
+- **Window Mode**: The bot is not designed for Fullscreen mode. In Fullscreen, the overlay will not function, and if the image is stretched, grid detection will produce incorrect results.
 - **Debug Mode**: If Debug Mode is enabled, all calculation results and images are saved to ```last.log```. These can be reloaded into the program to help diagnose the cause of any issues.
 - **Feedback**: If you use this tool, please report any bugs or suggest improvements. I will do my best to address them.

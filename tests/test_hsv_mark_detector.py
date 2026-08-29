@@ -73,7 +73,8 @@ def test_mark_detection(color, exp_px, exp_py, exp_mx, exp_my, image_path, scena
     hsv_mask = hsv_mark_detector.get_hsv_mask(
         image,
         color=color,
-        # You can add SL().get() for bluring_size and bluring_threshold here if needed
+        bluring_size=3,
+        bluring_threshold=30
     )
 
     # 3. Get predictions

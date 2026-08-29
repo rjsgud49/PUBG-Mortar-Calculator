@@ -6,11 +6,10 @@ import pytest
 
 from pubg_mortar_calculator.core.settings_loader import SettingsLoader as SL
 
-# Adjust this import to match your project structure
+from pubg_mortar_calculator.detectors import hsv_mark_detector
 from pubg_mortar_calculator.detectors import YoloMarkDetector
 
 FIXTURE_DIR = Path("tests/fixtures/marks")
-
 
 def load_mark_images():
     """Extracts color and coordinates from filenames like 'map_green_1643_964_959_1030.jpg'"""
@@ -59,9 +58,14 @@ def test_mark_detection(color, exp_px, exp_py, exp_mx, exp_my, image_path, scena
     settings = SL()
 
     detector = YoloMarkDetector()
-
+    
+    hsv_mark_detector.remove_danger_zones(image)
+    mask = hsv_mark_detector.get_hsv_mask(image, color, 49, 1)
+    positions = hsv_mark_detector.get_all_positions(mask)
+    samples = detector.make_samples(image, positions)
+    
     # 3. Get predictions
-    player_pos, mark_pos = detector.get_player_and_mark_pos(image, color)
+    player_pos, mark_pos = detector.get_player_and_mark_pos(samples, color)
 
     assert player_pos is not None, "Can not find player mark position"
     assert mark_pos is not None, "Can not find mark position"

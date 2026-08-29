@@ -1,19 +1,20 @@
 import numpy as np
+import cv2
+import random
 
-from pubg_mortar_calculator.detectors.yolo11_onnx_detector import (
+from pubg_mortar_calculator.detectors.yolo_onnx_detector import (
     Detection,
-    Yolo11OnnxDetector,
+    YoloOnnxDetector,
 )
-
+from pubg_mortar_calculator.detectors import hsv_mark_detector
 from ..utils import paths
 
 
 class YoloMarkDetector:
     def __init__(self) -> None:
-        self.detector = Yolo11OnnxDetector(
+        self.detector = YoloOnnxDetector(
             paths.mark_detection_model(),
             [
-                "map",
                 "yellow_mark",
                 "yellow_player_mark",
                 "orange_mark",
@@ -21,58 +22,71 @@ class YoloMarkDetector:
                 "blue_mark",
                 "blue_player_mark",
                 "green_mark",
-                "green_player_mark",
-                "yellow_ingame_mark",
-                "orange_ingame_mark",
-                "blue_ingame_mark",
-                "green_ingame_mark",
+                "green_player_mark"
             ],
             0.1,
             0.1,
-        )
+        )    
 
     def get_player_and_mark_pos(
-        self, bgr_image: np.ndarray, color: str
+        self, samples: list[tuple[tuple[int, int], np.ndarray]], color: str
     ) -> tuple[tuple[int, int] | None, tuple[int, int] | None]:
-        detections = self._detect(bgr_image)
+        detections = self._get_unique_detections(samples)
 
-        players: list[Detection] = []
-        marks: list[Detection] = []
+        player_pos, mark_pos = None, None
         for detection in detections:
-            if (
-                detection.class_name is not None
-                and "player_mark" in detection.class_name
-            ):
-                players.append(detection)
-            elif detection.class_name is not None and "mark" in detection.class_name:
-                marks.append(detection)
-
-        player = None
-        for detection in players:
             if detection.class_name is not None and color in detection.class_name:
-                player = detection
-                break
-
-        mark = None
-        for detection in marks:
-            if detection.class_name is not None and color in detection.class_name:
-                mark = detection
-                break
-
-        player_pos = None
-        if player is not None:
-            player_pos = (
-                round((player.box[0] + player.box[2]) / 2),
-                round((player.box[1] + player.box[3]) / 2),
-            )
-
-        mark_pos = None
-        if mark is not None:
-            mark_pos = (
-                round((mark.box[0] + mark.box[2]) / 2),
-                mark.box[3],
-            )
+                if "player" in detection.class_name and player_pos is None:
+                    player_pos = (detection.center_position())
+                elif mark_pos is None:
+                    mark_pos = (detection.center_position()[0], detection.box[3])
+            
         return (player_pos, mark_pos)
+
+    def _get_unique_detections(self, samples: list[tuple[tuple[int, int], np.ndarray]]) -> list[Detection]:
+        unique_detections = []
+                
+        for ((x,y), sample) in samples:
+            detections = self._detect(sample)
+            for detection in detections:
+                detection.box[0] += x
+                detection.box[1] += y
+                detection.box[2] += x
+                detection.box[3] += y
+
+                if not self.__is_in_list(unique_detections, detection):
+                    unique_detections.append(detection)
+
+        return unique_detections
+        
+    def __is_in_list(self, unique_list: list[Detection], detection: Detection, theshold: int = 10) -> bool:
+        for unique_detection in unique_list:
+            if unique_detection.class_nr != detection.class_nr: continue
+            delta_x = abs(unique_detection.box[0]-detection.box[0])
+            delta_y = abs(unique_detection.box[1]-detection.box[1])
+
+            if delta_x+delta_y < theshold:
+                return True
+        return False
+
+    def make_samples(self, image: np.ndarray, positions: list[tuple[int, int, float]],
+                    margin_multiplier: float = 0.1) -> list[tuple[tuple[int, int], np.ndarray]]:
+        samples = []
+        height, width = image.shape[:2]
+
+        margin = round(max(image.shape[:2])*margin_multiplier)
+
+        for x, y, r in positions:
+            x_min = max(0, x - margin)
+            x_max = min(width, x + margin)
+            y_min = max(0, y - margin)
+            y_max = min(height, y + margin)
+
+            crop = image[y_min:y_max, x_min:x_max]
+
+            samples.append(((x_min, y_min), crop))
+
+        return samples
 
     def change_confidence(self, confidence: float):
         self.detector.confidence = confidence
@@ -81,3 +95,33 @@ class YoloMarkDetector:
     def _detect(self, image: np.ndarray) -> list[Detection]:
         detections = self.detector.detect(image)
         return detections
+
+def main():
+    image = cv2.imread(r"C:\Users\patri\Desktop\PUBG-Mortar-Calculator\tests\fixtures\grids\swamp_map_216.jpg")
+    if image is None: exit("No image found")
+
+    mask = hsv_mark_detector.get_hsv_mask(image, "green", 19, 1)
+    positions = hsv_mark_detector.get_all_positions(mask)
+    yolo_detector = YoloMarkDetector()
+    samples = yolo_detector.make_samples(image, positions)
+
+    for sample in samples:
+        cv2.imshow("B", sample[1])
+        cv2.waitKey(0)
+
+    detections = yolo_detector._get_unique_detections(samples)
+
+
+    player, mark = yolo_detector.get_player_and_mark_pos(samples, "green")
+    for d in detections:
+        cv2.circle(image, d.center_position(), random.randint(10, 40), (0, 0, 255), 2)
+    if player is not None:
+        cv2.circle(image, player, 15, (255, 0, 255), 5)
+    if mark is not None:
+        cv2.circle(image, mark, 15, (255, 0, 255), 5)
+
+    cv2.imshow("A", cv2.resize(image, (1000, 1000)))
+    cv2.waitKey(0)
+
+if __name__ == '__main__':
+    main()

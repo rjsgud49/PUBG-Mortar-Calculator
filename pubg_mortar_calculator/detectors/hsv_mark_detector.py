@@ -30,6 +30,20 @@ def get_mark_positions(
 
     return (player_cord, mark_cord)
 
+def get_all_positions(
+    hsv_mask: np.ndarray,
+ ) -> list[tuple[int, int, float]]:
+    contours = __find_contours(hsv_mask)
+
+    detections = []
+
+    for contour in contours:
+        (x, y), radius = cv2.minEnclosingCircle(contour)
+
+        cx, cy = int(x), int(y)
+        detections.append((cx, cy, radius))
+
+    return detections
 
 def draw_marks(
     bgr_image: np.ndarray,
@@ -63,8 +77,8 @@ def remove_danger_zones(image: np.ndarray):
 def get_hsv_mask(
     bgr_image: np.ndarray,
     color: str,
-    bluring_size: int = 3,
-    bluring_threshold: int = 30,
+    bluring_size: int,
+    bluring_threshold: int,
 ) -> np.ndarray:
     hsv_frame = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2HSV)
 
