@@ -45,31 +45,31 @@ class GridDetector:
         return self._separate_and_merge_lines(processed_lines, line_merge_theshold)
 
     @staticmethod
-    def calculate_grid_gap(horizontal_lines: list, vertical_lines: list) -> int | None:
-        horizontal_gaps = []
-        vertical_gaps = []
+    def calculate_grid_gap(horizontal_lines: list, vertical_lines: list) -> float | None:
+        sorted_h = sorted(horizontal_lines, key=lambda line: (line[1] + line[3]) / 2.0)
+        sorted_v = sorted(vertical_lines, key=lambda line: (line[0] + line[2]) / 2.0)
 
-        for i in range(0, len(horizontal_lines) - 1):
-            x0, y0, x1, y1 = horizontal_lines[i]
-            x2, y2, x3, y3 = horizontal_lines[i + 1]
-            gap = int(abs(y0 - y2))
-            horizontal_gaps.append(gap)
+        gaps = []
 
-        for i in range(0, len(vertical_lines) - 1):
-            x0, y0, x1, y1 = vertical_lines[i]
-            x2, y2, x3, y3 = vertical_lines[i + 1]
-            gap = int(abs(x0 - x2))
-            vertical_gaps.append(gap)
+        for i in range(len(sorted_h) - 1):
+            gaps.append(abs(float(sorted_h[i + 1][1]) - float(sorted_h[i][1])))
 
-        gaps = horizontal_gaps.copy()
-        gaps.extend(vertical_gaps)
+        for i in range(len(sorted_v) - 1):
+            gaps.append(abs(float(sorted_v[i + 1][0]) - float(sorted_v[i][0])))
 
-        if len(gaps):
-            mode_gap = round(statistics.mode(gaps))
-        else:
-            mode_gap = None
+        if not gaps:
+            return None
 
-        return mode_gap
+        gaps_arr = np.array(gaps, dtype=np.float64)
+
+        median_gap = np.median(gaps_arr)
+
+        valid_gaps = gaps_arr[np.abs(gaps_arr - median_gap) <= 0.01 * median_gap]
+
+        if valid_gaps.size > 0:
+            return float(np.mean(valid_gaps))
+        
+        return float(median_gap)
 
     def _normalize_image(self, image: np.ndarray) -> np.ndarray:
         max_resolution = (
@@ -119,7 +119,7 @@ class GridDetector:
 
     @staticmethod
     def get_distance(
-        first_point: tuple[int, int], second_point: tuple[int, int], grid_gap: int
+        first_point: tuple[int, int], second_point: tuple[int, int], grid_gap: int | float
     ) -> float | None:
         if grid_gap == 0:
             return None

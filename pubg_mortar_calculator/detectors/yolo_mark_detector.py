@@ -70,12 +70,12 @@ class YoloMarkDetector:
         return False
 
     def make_samples(self, image: np.ndarray, positions: list[tuple[int, int, float]],
-                    margin_multiplier: float = 3) -> list[tuple[tuple[int, int], np.ndarray]]:
+                    margin_multiplier: float = 5) -> list[tuple[tuple[int, int], np.ndarray]]:
         samples = []
         height, width = image.shape[:2]
 
         for x, y, r in positions:
-            margin = round(r*margin_multiplier)
+            margin = max(round(r*margin_multiplier), 50)
             x_min = max(0, x - margin)
             x_max = min(width, x + margin)
             y_min = max(0, y - margin)
@@ -96,22 +96,23 @@ class YoloMarkDetector:
         return detections
 
 def main():
-    image = cv2.imread(r"C:\Users\patri\Desktop\PUBG-Mortar-Calculator\tests\fixtures\grids\swamp_map_216.jpg")
+    image = cv2.imread(r"C:\Users\patri\Desktop\PUBG-Mortar-Calculator\tests\fixtures\marks\desert_map_yellow_1060_344_1025_474.jpg")
     if image is None: exit("No image found")
 
-    mask = hsv_mark_detector.get_hsv_mask(image, "green", 19, 1)
+    hsv_mark_detector.remove_danger_zones(image)
+    mask = hsv_mark_detector.get_hsv_mask(image, "yellow", 49, 1)
     positions = hsv_mark_detector.get_all_positions(mask)
     yolo_detector = YoloMarkDetector()
     samples = yolo_detector.make_samples(image, positions)
 
     for sample in samples:
-        cv2.imshow("B", sample[1])
+        cv2.imshow("B", cv2.resize(sample[1], (500, 500)))
         cv2.waitKey(0)
 
     detections = yolo_detector._get_unique_detections(samples)
 
 
-    player, mark = yolo_detector.get_player_and_mark_pos(samples, "green")
+    player, mark = yolo_detector.get_player_and_mark_pos(samples, "yellow")
     for d in detections:
         cv2.circle(image, d.center_position(), random.randint(10, 40), (0, 0, 255), 2)
     if player is not None:

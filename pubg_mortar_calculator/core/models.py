@@ -69,7 +69,7 @@ class GeneralSettings:
 @dataclass
 class MapData:
     distance: float | None = None
-    grid_gap: int | None = None
+    grid_gap: float | None = None
     player_position: tuple[int, int] | None = None
     mark_position: tuple[int, int] | None = None
     minimap_type: MinimapType = MinimapType.NO_MINIMAP
