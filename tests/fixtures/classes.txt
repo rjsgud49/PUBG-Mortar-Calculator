@@ -1,0 +1,14 @@
+map
+yellow_mark
+yellow_player_mark
+orange_mark
+orange_player_mark
+blue_mark
+blue_player_mark
+green_mark
+green_player_mark
+yellow_ingame_mark
+orange_ingame_mark
+blue_ingame_mark
+green_ingame_mark
+grid_cell

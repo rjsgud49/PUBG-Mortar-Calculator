@@ -43,6 +43,7 @@ class CreateRect:
     border_size: int = 3
     border_color: str = "purple"
 
+
 @dataclass
 class CreateCircle:
     x0: int | float
@@ -50,6 +51,7 @@ class CreateCircle:
     radious: int | float
     border_size: int = 3
     border_color: str = "blue"
+
 
 @dataclass
 class CreateLine:
@@ -59,6 +61,7 @@ class CreateLine:
     y1: int | float
     thickness: int | float
     color: str = "green"
+
 
 class AppOverlay:
     def __init__(self, target_app_title: str, fps: int = 20):

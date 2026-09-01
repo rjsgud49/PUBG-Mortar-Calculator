@@ -9,7 +9,7 @@ def get_mark_positions(
     min_radius: float,
     max_radius: float,
 ) -> tuple[tuple[int, int] | None, tuple[int, int] | None]:
-    contours = __find_contours(hsv_mask)
+    contours = _find_contours(hsv_mask)
 
     player_cord = None
     mark_cord = None
@@ -30,10 +30,11 @@ def get_mark_positions(
 
     return (player_cord, mark_cord)
 
+
 def get_all_positions(
     hsv_mask: np.ndarray,
- ) -> list[tuple[int, int, float]]:
-    contours = __find_contours(hsv_mask)
+) -> list[tuple[int, int, float]]:
+    contours = _find_contours(hsv_mask)
 
     detections = []
 
@@ -44,6 +45,7 @@ def get_all_positions(
         detections.append((cx, cy, radius))
 
     return detections
+
 
 def draw_marks(
     bgr_image: np.ndarray,
@@ -110,8 +112,8 @@ def __color_to_hsv_range(color: str) -> tuple[np.ndarray, np.ndarray]:
     return np.array(hsv_min, dtype=np.uint8), np.array(hsv_max, dtype=np.uint8)
 
 
-def __find_contours(mask: np.ndarray) -> list:
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+def _find_contours(mask: np.ndarray) -> list:
+    contours, _ = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
     sorted_contours = sorted(contours, key=cv2.contourArea, reverse=True)
 

@@ -3,6 +3,8 @@ from typing import Tuple
 import cv2
 import numpy as np
 
+from pubg_mortar_calculator.logger import get_logger
+
 from ..detectors import (
     GridDetector,
     MinimapDetector,
@@ -12,9 +14,9 @@ from ..detectors import (
 )
 from ..utils import imgpr
 from .models import GridSettings, MapData, MarkSettings, MinimapSettings
-from pubg_mortar_calculator.logger import get_logger
 
 LOGGER = get_logger()
+
 
 class MapProcessor:
     def __init__(self):
@@ -51,21 +53,28 @@ class MapProcessor:
         )
         map_data.grid_gap = self.grid_detector.calculate_grid_gap(*lines)
 
+        samples = []
         hsv_mask = None
         if map_data.minimap_type == MinimapType.NO_MINIMAP:
             hsv_mark_detector.remove_danger_zones(processed)
         if not mark_settings.use_yolo or yolo_detector is None:
-            hsv_mask = hsv_mark_detector.get_hsv_mask(processed, mark_settings.color, 3, 30)
+            hsv_mask = hsv_mark_detector.get_hsv_mask(
+                processed, mark_settings.color, 3, 30
+            )
             map_data.player_position, map_data.mark_position = (
                 hsv_mark_detector.get_mark_positions(
                     hsv_mask, mark_settings.min_radius, mark_settings.max_radius
                 )
             )
         else:
-            hsv_mask = hsv_mark_detector.get_hsv_mask(processed, mark_settings.color, 19, 1)
+            hsv_mask = hsv_mark_detector.get_hsv_mask(
+                processed, mark_settings.color, 19, 1
+            )
             positions = hsv_mark_detector.get_all_positions(hsv_mask)
             samples = yolo_detector.make_samples(processed, positions)
-            map_data.player_position, map_data.mark_position = yolo_detector.get_player_and_mark_pos(samples, mark_settings.color)
+            map_data.player_position, map_data.mark_position = (
+                yolo_detector.get_player_and_mark_pos(samples, mark_settings.color)
+            )
 
         if map_data.player_position and map_data.mark_position and map_data.grid_gap:
             map_data.distance = self.grid_detector.get_distance(
@@ -76,6 +85,10 @@ class MapProcessor:
             processed = cv2.cvtColor(canny, cv2.COLOR_GRAY2BGR)
         elif mark_settings.show_processed and hsv_mask is not None:
             processed = cv2.cvtColor(hsv_mask, cv2.COLOR_GRAY2BGR)
+            if mark_settings.use_yolo:
+                for (x, y), image in samples:
+                    h, w = image.shape[:2]
+                    cv2.rectangle(processed, (x, y), (x + w, y + h), (0, 0, 255), 3)
 
         if grid_settings.draw_lines:
             self.grid_detector.draw_lines(processed, *lines)

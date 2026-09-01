@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-
 from typing import Tuple
+
 from pubg_mortar_calculator.detectors.minimap_detector import MinimapType
 
 
@@ -23,6 +23,7 @@ class OverlaySettings:
     draw_minimap: bool
     draw_map_marks: bool
     draw_elevation_marks: bool
+
 
 @dataclass
 class MarkSettings:
@@ -83,4 +84,4 @@ class ElevationData:
     center_position: tuple[int, int] | None = None
     elevated_distance: float | None = None
     mortar_elevated_distance: int | str | None = None
-    x_start: int = 0 
+    x_start: int = 0

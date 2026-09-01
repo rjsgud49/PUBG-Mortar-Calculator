@@ -2,60 +2,68 @@ import re
 from pathlib import Path
 
 import cv2
+import numpy as np
 import pytest
 
-from pubg_mortar_calculator.detectors import MinimapDetector, MinimapType
+from pubg_mortar_calculator.core.settings_loader import SettingsLoader as SL
+from pubg_mortar_calculator.detectors.minimap_detector import (
+    MinimapDetector,
+    MinimapType,
+)
+from tools.mark_model.make_dataset import get_annotations_from_file
 
-FIXTURE_DIR = Path("tests/fixtures/maps")
+FIXTURE_DIR = Path(r"tests/fixtures")
 
 
-def load_minimap_images():
-    """Dynamically loads test cases and 4 coordinates from filenames."""
+def load_test_images():
     test_cases = []
+    for image_path in FIXTURE_DIR.glob("*.jpg"):
+        annotations_path = image_path.with_suffix(".txt")
+        if annotations_path.exists():
+            annotations = get_annotations_from_file(annotations_path)
+        else:
+            annotations = []
 
-    if not FIXTURE_DIR.exists():
-        return test_cases
-
-    for img_path in FIXTURE_DIR.iterdir():
-        if img_path.is_file() and img_path.suffix.lower() in [".png", ".jpg", ".jpeg"]:
-            match = re.search(
-                r"^(.*)_(.*)_(.*)_(\d+)_(\d+)_(\d+)_(\d+)\.(png|jpg|jpeg)$",
-                img_path.name,
-                re.IGNORECASE,
-            )
-
-            if match:
-                minimap_type = match.group(1)
-                scenario = match.group(3)
-                test_cases.append((minimap_type, str(img_path), scenario))
+        test_cases.append((annotations, image_path))
 
     return test_cases
 
 
-@pytest.mark.parametrize(
-    "minimap_type, image_path, scenario",
-    load_minimap_images(),
-)
-def test_minimap_type(minimap_type, image_path, scenario):
-    detector = MinimapDetector()
+@pytest.mark.parametrize("annotations, image_path", load_test_images())
+def test_minimap_detector(annotations, image_path):
     image = cv2.imread(image_path)
+    assert image is not None, f"Failed to load image at: {image_path}"
+    h, w = image.shape[:2]
 
-    assert image is not None, f"Failed to load image for {scenario} at: {image_path}"
+    grid_gap = None
+    map_size = None
+    for annotation in annotations:
+        annotation.x -= annotation.w / 2
+        annotation.y -= annotation.h / 2
+        if annotation.id == 0:
+            map_size = (annotation.w, annotation.h)
+        elif annotation.id == 13:
+            grid_gap = (annotation.w * w + annotation.h * h) / 2
 
-    predicted_minimap_type = detector.detect(image)
+    if map_size is None:
+        map_size = (1, 1)
 
-    assert predicted_minimap_type != MinimapType.NO_MINIMAP, (
-        f"Scenario: {scenario} | No minimap detected!"
-    )
+    settings = SL()
 
-    match minimap_type:
-        case "small":
-            truth_minimap_type = MinimapType.SMALL_MINIMAP
-        case "large":
-            truth_minimap_type = MinimapType.LARGE_MINIMAP
-        case _:
-            truth_minimap_type = MinimapType.NO_MINIMAP
+    detector = MinimapDetector()
 
-    assert predicted_minimap_type == truth_minimap_type, (
-        f"Type mismatch in {scenario} ({predicted_minimap_type}/{truth_minimap_type})"
+    detected_minimap_type = detector.detect(image)
+
+    area = map_size[0] * map_size[1]
+
+    if area > 0.5:
+        actual_minimap_type = MinimapType.NO_MINIMAP
+    elif area > 0.06:
+        actual_minimap_type = MinimapType.LARGE_MINIMAP
+    else:
+        actual_minimap_type = MinimapType.SMALL_MINIMAP
+
+    assert detected_minimap_type == actual_minimap_type, (
+        f"Image: {image_path} | "
+        f"Predicted: {detected_minimap_type} | Ground Truth: {actual_minimap_type}"
     )

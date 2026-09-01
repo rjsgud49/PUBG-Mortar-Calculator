@@ -47,6 +47,7 @@ def airdrop_detection_model() -> Path:
 def mark_detection_model() -> Path:
     return assets() / "mark_model.onnx"
 
+
 def get_image() -> Path | None:
     image_path = filedialog.askopenfilename(
         title="Select a File",

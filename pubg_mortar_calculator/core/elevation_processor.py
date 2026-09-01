@@ -3,13 +3,15 @@ from typing import Tuple
 import cv2
 import numpy as np
 
+from pubg_mortar_calculator.logger import get_logger
+
 from ..detectors import hsv_mark_detector
 from ..utils import imgpr
-from pubg_mortar_calculator.logger import get_logger
 from .elevation_tools import ElevationTools
 from .models import ElevationData, ElevationSettings, MarkSettings
 
 LOGGER = get_logger()
+
 
 class ElevationProcessor:
     def process(
@@ -27,10 +29,14 @@ class ElevationProcessor:
         imgpr.replace_area_with_black(processed, (0, 0), (processed.shape[1], cut_y))
 
         data.center_position = imgpr.get_center_point(processed)
-        cutted_img, (x_start, x_end) = imgpr.cut_x_line(processed, data.center_position[0], 0.02)
+        cutted_img, (x_start, x_end) = imgpr.cut_x_line(
+            processed, data.center_position[0], 0.02
+        )
         cutted_center = imgpr.get_center_point(cutted_img)
 
-        hsv_mask = hsv_mark_detector.get_hsv_mask(cutted_img, mark_settings.color, 19, 1)
+        hsv_mask = hsv_mark_detector.get_hsv_mask(
+            cutted_img, mark_settings.color, 19, 1
+        )
         data.mark_position = hsv_mark_detector.get_mark_positions(
             hsv_mask, mark_settings.min_radius, mark_settings.max_radius
         )[0]

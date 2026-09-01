@@ -4,10 +4,11 @@ from pathlib import Path
 import cv2
 
 ROOT_DIR = Path(__file__).parent.parent
-FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures" / "grids"
+FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures"
 
-MAX_DIMENSION = 1920
+MAX_DIMENSION = 19200
 JPEG_QUALITY = 70  # 0 to 100 (lower = smaller file size, but more blurry)
+
 
 def compress_and_rename():
     if not FIXTURE_DIR.exists():
@@ -51,6 +52,7 @@ def compress_and_rename():
             img_path.unlink()
 
         print(f"Processed: '{img_path.name}' -> '{new_filename}' (Scale: {scale:.2f})")
+
 
 if __name__ == "__main__":
     compress_and_rename()

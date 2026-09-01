@@ -1,13 +1,14 @@
 import cv2
 import numpy as np
 
+from pubg_mortar_calculator.core.app_overlay import *
+
 from ..detectors import MinimapDetector, YoloMarkDetector
 from ..logger import get_logger
 from ..utils import paths
 from .dictor_manager import DictorManager
 from .elevation_processor import ElevationProcessor
 from .map_processor import MapProcessor
-from pubg_mortar_calculator.core.app_overlay import *
 from .models import (
     DictorSettings,
     ElevationData,
@@ -17,7 +18,7 @@ from .models import (
     MapData,
     MarkSettings,
     MinimapSettings,
-    OverlaySettings
+    OverlaySettings,
 )
 from .storage import ImageStorage
 
@@ -92,12 +93,11 @@ class AppLogic:
             elevation_settings,
             mark_settings,
         )
-        ImageStorage.save_elevation(self.elevation_image, combat and general_settings.debug_mode)
+        ImageStorage.save_elevation(
+            self.elevation_image, combat and general_settings.debug_mode
+        )
 
-        if (
-            dictor_settings.enabled
-            and combat
-        ):
+        if dictor_settings.enabled and combat:
             self.dictor.add(self.elevation_data.mortar_elevated_distance)
 
         return processed_img, self.elevation_data
@@ -113,7 +113,9 @@ class AppLogic:
 
         return image
 
-    def draw_to_overlay(self, overlay: AppOverlay | None, overlay_settings: OverlaySettings):
+    def draw_to_overlay(
+        self, overlay: AppOverlay | None, overlay_settings: OverlaySettings
+    ):
         if overlay_settings.enabled and overlay is not None:
             overlay.add_command(Clear())
             if overlay_settings.draw_borders:
@@ -124,10 +126,15 @@ class AppLogic:
             (x0, y0, x1, y1) = 0, 0, 0, 0
             if self.map_data.minimap_box is not None and overlay_settings.draw_minimap:
                 (x0, y0, x1, y1) = self.map_data.minimap_box
-                overlay.add_command(CreateRect(
-                    int(x0 / scale), int(y0 / scale), int(x1 / scale), int(y1 / scale)
-                ))
-        
+                overlay.add_command(
+                    CreateRect(
+                        int(x0 / scale),
+                        int(y0 / scale),
+                        int(x1 / scale),
+                        int(y1 / scale),
+                    )
+                )
+
             def fmt(val, precision=".1f"):
                 return "None" if val is None else f"{val:{precision}}"
 
@@ -146,24 +153,74 @@ class AppLogic:
             if overlay_settings.draw_map_marks:
                 mark_position = self.map_data.mark_position
                 if mark_position is not None:
-                    mark_position = (int((mark_position[0]+x0)/scale), int((mark_position[1]+y0)/scale))
-                    overlay.add_command(CreateCircle(mark_position[0], mark_position[1], 5, border_color="red"))
+                    mark_position = (
+                        int((mark_position[0] + x0) / scale),
+                        int((mark_position[1] + y0) / scale),
+                    )
+                    overlay.add_command(
+                        CreateCircle(
+                            mark_position[0], mark_position[1], 5, border_color="red"
+                        )
+                    )
 
                 player_position = self.map_data.player_position
                 if player_position is not None:
-                    player_position = (int((player_position[0]+x0)/scale), int((player_position[1]+y0)/scale))
-                    overlay.add_command(CreateCircle(player_position[0], player_position[1], 5, border_color="blue"))
+                    player_position = (
+                        int((player_position[0] + x0) / scale),
+                        int((player_position[1] + y0) / scale),
+                    )
+                    overlay.add_command(
+                        CreateCircle(
+                            player_position[0],
+                            player_position[1],
+                            5,
+                            border_color="blue",
+                        )
+                    )
 
                 if player_position is not None and mark_position is not None:
-                    overlay.add_command(CreateLine(mark_position[0], mark_position[1],
-                                                player_position[0], player_position[1],
-                                                3, "green"))
+                    overlay.add_command(
+                        CreateLine(
+                            mark_position[0],
+                            mark_position[1],
+                            player_position[0],
+                            player_position[1],
+                            3,
+                            "green",
+                        )
+                    )
 
-            if overlay_settings.draw_elevation_marks and self.elevation_data.mark_position is not None and self.elevation_data.center_position is not None:
-                overlay.add_command(CreateCircle(int((self.elevation_data.mark_position[0]+self.elevation_data.x_start)/scale),
-                                                 int(self.elevation_data.mark_position[1]/scale), 5, border_color='yellow'))
-                overlay.add_command(CreateLine(int((self.elevation_data.mark_position[0]+self.elevation_data.x_start)/scale),
-                                    int(self.elevation_data.mark_position[1]/scale),
-                                    int(self.elevation_data.center_position[0]/scale),
-                                    int(self.elevation_data.center_position[1]/scale),
-                                    2))
+            if (
+                overlay_settings.draw_elevation_marks
+                and self.elevation_data.mark_position is not None
+                and self.elevation_data.center_position is not None
+            ):
+                overlay.add_command(
+                    CreateCircle(
+                        int(
+                            (
+                                self.elevation_data.mark_position[0]
+                                + self.elevation_data.x_start
+                            )
+                            / scale
+                        ),
+                        int(self.elevation_data.mark_position[1] / scale),
+                        5,
+                        border_color="yellow",
+                    )
+                )
+                overlay.add_command(
+                    CreateLine(
+                        int(
+                            (
+                                self.elevation_data.mark_position[0]
+                                + self.elevation_data.x_start
+                            )
+                            / scale
+                        ),
+                        int(self.elevation_data.mark_position[1] / scale),
+                        int(self.elevation_data.center_position[0] / scale),
+                        int(self.elevation_data.center_position[1] / scale),
+                        2,
+                    )
+                )

@@ -45,7 +45,9 @@ class GridDetector:
         return self._separate_and_merge_lines(processed_lines, line_merge_theshold)
 
     @staticmethod
-    def calculate_grid_gap(horizontal_lines: list, vertical_lines: list) -> float | None:
+    def calculate_grid_gap(
+        horizontal_lines: list, vertical_lines: list
+    ) -> float | None:
         sorted_h = sorted(horizontal_lines, key=lambda line: (line[1] + line[3]) / 2.0)
         sorted_v = sorted(vertical_lines, key=lambda line: (line[0] + line[2]) / 2.0)
 
@@ -68,7 +70,7 @@ class GridDetector:
 
         if valid_gaps.size > 0:
             return float(np.mean(valid_gaps))
-        
+
         return float(median_gap)
 
     def _normalize_image(self, image: np.ndarray) -> np.ndarray:
@@ -119,7 +121,9 @@ class GridDetector:
 
     @staticmethod
     def get_distance(
-        first_point: tuple[int, int], second_point: tuple[int, int], grid_gap: int | float
+        first_point: tuple[int, int],
+        second_point: tuple[int, int],
+        grid_gap: int | float,
     ) -> float | None:
         if grid_gap == 0:
             return None

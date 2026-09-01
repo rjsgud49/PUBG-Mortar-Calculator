@@ -1,12 +1,14 @@
-import numpy as np
-import cv2
 import random
 
+import cv2
+import numpy as np
+
+from pubg_mortar_calculator.detectors import hsv_mark_detector
 from pubg_mortar_calculator.detectors.yolo_onnx_detector import (
     Detection,
     YoloOnnxDetector,
 )
-from pubg_mortar_calculator.detectors import hsv_mark_detector
+
 from ..utils import paths
 
 
@@ -22,11 +24,11 @@ class YoloMarkDetector:
                 "blue_mark",
                 "blue_player_mark",
                 "green_mark",
-                "green_player_mark"
+                "green_player_mark",
             ],
             0.1,
             0.1,
-        )    
+        )
 
     def get_player_and_mark_pos(
         self, samples: list[tuple[tuple[int, int], np.ndarray]], color: str
@@ -37,16 +39,18 @@ class YoloMarkDetector:
         for detection in detections:
             if detection.class_name is not None and color in detection.class_name:
                 if "player" in detection.class_name and player_pos is None:
-                    player_pos = (detection.center_position())
+                    player_pos = detection.center_position()
                 elif mark_pos is None:
                     mark_pos = (detection.center_position()[0], detection.box[3])
-            
+
         return (player_pos, mark_pos)
 
-    def _get_unique_detections(self, samples: list[tuple[tuple[int, int], np.ndarray]]) -> list[Detection]:
+    def _get_unique_detections(
+        self, samples: list[tuple[tuple[int, int], np.ndarray]]
+    ) -> list[Detection]:
         unique_detections = []
-                
-        for ((x,y), sample) in samples:
+
+        for (x, y), sample in samples:
             detections = self._detect(sample)
             for detection in detections:
                 detection.box[0] += x
@@ -58,24 +62,32 @@ class YoloMarkDetector:
                     unique_detections.append(detection)
 
         return unique_detections
-        
-    def __is_in_list(self, unique_list: list[Detection], detection: Detection, theshold: int = 10) -> bool:
-        for unique_detection in unique_list:
-            if unique_detection.class_nr != detection.class_nr: continue
-            delta_x = abs(unique_detection.box[0]-detection.box[0])
-            delta_y = abs(unique_detection.box[1]-detection.box[1])
 
-            if delta_x+delta_y < theshold:
+    def __is_in_list(
+        self, unique_list: list[Detection], detection: Detection, theshold: int = 10
+    ) -> bool:
+        for unique_detection in unique_list:
+            if unique_detection.class_nr != detection.class_nr:
+                continue
+            delta_x = abs(unique_detection.box[0] - detection.box[0])
+            delta_y = abs(unique_detection.box[1] - detection.box[1])
+            print(delta_x, delta_y)
+
+            if delta_x + delta_y < theshold:
                 return True
         return False
 
-    def make_samples(self, image: np.ndarray, positions: list[tuple[int, int, float]],
-                    margin_multiplier: float = 5) -> list[tuple[tuple[int, int], np.ndarray]]:
+    def make_samples(
+        self,
+        image: np.ndarray,
+        positions: list[tuple[int, int, float]],
+        margin_multiplier: float = 3,
+    ) -> list[tuple[tuple[int, int], np.ndarray]]:
         samples = []
         height, width = image.shape[:2]
 
         for x, y, r in positions:
-            margin = max(round(r*margin_multiplier), 50)
+            margin = max(round(r * margin_multiplier), 50)
             x_min = max(0, x - margin)
             x_max = min(width, x + margin)
             y_min = max(0, y - margin)
@@ -95,12 +107,17 @@ class YoloMarkDetector:
         detections = self.detector.detect(image)
         return detections
 
+
 def main():
-    image = cv2.imread(r"C:\Users\patri\Desktop\PUBG-Mortar-Calculator\tests\fixtures\marks\desert_map_yellow_1060_344_1025_474.jpg")
-    if image is None: exit("No image found")
+    image = cv2.imread(
+        r"A:\Datasets\PUBG\original\large_minimap_basic_1428_591_1888_1050.jpg"
+    )
+    if image is None:
+        exit("No image found")
 
     hsv_mark_detector.remove_danger_zones(image)
-    mask = hsv_mark_detector.get_hsv_mask(image, "yellow", 49, 1)
+    mask = hsv_mark_detector.get_hsv_mask(image, "blue", 49, 1)
+    contours = hsv_mark_detector._find_contours(mask)
     positions = hsv_mark_detector.get_all_positions(mask)
     yolo_detector = YoloMarkDetector()
     samples = yolo_detector.make_samples(image, positions)
@@ -111,8 +128,7 @@ def main():
 
     detections = yolo_detector._get_unique_detections(samples)
 
-
-    player, mark = yolo_detector.get_player_and_mark_pos(samples, "yellow")
+    player, mark = yolo_detector.get_player_and_mark_pos(samples, "blue")
     for d in detections:
         cv2.circle(image, d.center_position(), random.randint(10, 40), (0, 0, 255), 2)
     if player is not None:
@@ -120,8 +136,10 @@ def main():
     if mark is not None:
         cv2.circle(image, mark, 15, (255, 0, 255), 5)
 
+    cv2.drawContours(image, contours, -1, (255, 0, 255), 2)
     cv2.imshow("A", cv2.resize(image, (1000, 1000)))
     cv2.waitKey(0)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

@@ -2,47 +2,53 @@ import re
 from pathlib import Path
 
 import cv2
+import numpy as np
 import pytest
 
 from pubg_mortar_calculator.core.settings_loader import SettingsLoader as SL
 from pubg_mortar_calculator.detectors import GridDetector
+from tools.mark_model.make_dataset import get_annotations_from_file
 
-# Point to your new fixtures directory
-FIXTURE_DIR = Path("tests/fixtures/grids")
+FIXTURE_DIR = Path("tests/fixtures")
+MAX_DELTA = 2
 
 
 def load_test_images():
-    """Dynamically loads test cases from the filenames in the fixtures folder."""
     test_cases = []
+    for image_path in FIXTURE_DIR.glob("*.jpg"):
+        annotations_path = image_path.with_suffix(".txt")
+        annotations = get_annotations_from_file(annotations_path)
 
-    # If the folder doesn't exist yet, return empty (pytest will warn you)
-    if not FIXTURE_DIR.exists():
-        return test_cases
-
-    for img_path in FIXTURE_DIR.iterdir():
-        if img_path.is_file() and img_path.suffix.lower() in [".png", ".jpg", ".jpeg"]:
-            # Match filenames like "swamp_clear_288.jpg"
-            match = re.search(
-                r"^(.*)_(\d+)\.(png|jpg|jpeg)$", img_path.name, re.IGNORECASE
-            )
-
-            if match:
-                scenario = match.group(1)  # e.g., "swamp_clear"
-                expected_gap = float(match.group(2))  # e.g., 288.0
-
-                # Append tuple: (expected_gap, image_path, scenario)
-                test_cases.append((expected_gap, str(img_path), scenario))
+        test_cases.append((annotations, image_path))
 
     return test_cases
 
 
-# Pytest automatically calls load_test_images() to get the list of parameters
-@pytest.mark.parametrize("expected_gap, image_path, scenario", load_test_images())
-def test_grid_gap(expected_gap, image_path, scenario):
+@pytest.mark.parametrize("annotations, image_path", load_test_images())
+def test_grid_gap(annotations, image_path):
     grid_detector = GridDetector()
-    image = cv2.imread(image_path)
 
-    assert image is not None, f"Failed to load image for {scenario} at: {image_path}"
+    image = cv2.imread(image_path)
+    assert image is not None, f"Failed to load image at: {image_path}"
+    h, w = image.shape[:2]
+
+    grid_gap = None
+    map_box = None
+    for annotation in annotations:
+        annotation.x -= annotation.w / 2
+        annotation.y -= annotation.h / 2
+        if annotation.id == 0:
+            x0 = int(annotation.x * w)
+            y0 = int(annotation.y * h)
+            map_box = (x0, y0, x0 + int(annotation.w * w), y0 + int(annotation.h * h))
+        elif annotation.id == 13:
+            grid_gap = (annotation.w * w + annotation.h * h) / 2
+
+    assert grid_gap is not None, f"Failed to load grid gap at: {image_path}"
+
+    if map_box is not None:
+        x0, y0, x1, y1 = map_box
+        image = image[y0:y1, x0:x1]
 
     settings = SL()
 
@@ -61,13 +67,15 @@ def test_grid_gap(expected_gap, image_path, scenario):
 
     calc_gap = grid_detector.calculate_grid_gap(*lines)
 
-    assert calc_gap is not None, (
-        f"Scenario: {scenario} | Image: {image_path} | "
-        f"Predicted: None | Ground Truth: {expected_gap}"
-    )
+    assert calc_gap is not None, f"Image: {image_path} | Ground Truth: {grid_gap}"
 
-    assert calc_gap == pytest.approx(expected_gap, abs=2), (
-        f"Scenario: {scenario} | Image: {image_path} | "
-        f"Delta: {abs(calc_gap - expected_gap)} | "
-        f"Predicted: {calc_gap} | Ground Truth: {expected_gap}"
+    # if calc_gap != pytest.approx(grid_gap, abs=MAX_DELTA):
+    #     grid_detector.draw_lines(image, *lines)
+    #     cv2.imshow("A", cv2.resize(image, (800, 800)))
+    #     cv2.waitKey(0)
+
+    assert calc_gap == pytest.approx(grid_gap, abs=MAX_DELTA), (
+        f"Image: {image_path} | "
+        f"Delta: {abs(calc_gap - grid_gap)} | "
+        f"Predicted: {calc_gap} | Ground Truth: {grid_gap}"
     )

@@ -23,6 +23,7 @@ class Detection:
         x0, y0, x1, y1 = self.box
         return (int((x0 + x1) / 2), int((y0 + y1) / 2))
 
+
 class YoloOnnxDetector:
     def __init__(
         self,
@@ -161,9 +162,7 @@ class YoloOnnxDetector:
 
                 cls_idx = int(class_ids[i])
                 class_name = (
-                    self.classes[cls_idx]
-                    if 0 <= cls_idx < len(self.classes)
-                    else None
+                    self.classes[cls_idx] if 0 <= cls_idx < len(self.classes) else None
                 )
 
                 detections.append(
@@ -192,9 +191,12 @@ class YoloOnnxDetector:
             )
         else:
             self.last_letterbox_offset, self.last_letterbox_multiplier = (
-                0,
-                0,
-            ), (1.0, 1.0)
+                (
+                    0,
+                    0,
+                ),
+                (1.0, 1.0),
+            )
             self.last_original_image_size = None
 
         rgb_image = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
@@ -217,9 +219,7 @@ class YoloOnnxDetector:
             color = self._get_color(det.class_nr)
             cv2.rectangle(image, (x0, y0), (x1, y1), color, 2)
 
-            class_label = (
-                det.class_name if det.class_name else f"Class {det.class_nr}"
-            )
+            class_label = det.class_name if det.class_name else f"Class {det.class_nr}"
             label = f"{class_label} {det.confidence:.2f}"
 
             (text_w, text_h), baseline = cv2.getTextSize(
@@ -255,13 +255,9 @@ class YoloOnnxDetector:
         scale = min(target_w / w, target_h / h)
         new_w, new_h = int(round(w * scale)), int(round(h * scale))
 
-        resized_img = cv2.resize(
-            image, (new_w, new_h), interpolation=cv2.INTER_LINEAR
-        )
+        resized_img = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
 
-        padded_img = np.full(
-            (target_h, target_w, 3), fill_value, dtype=image.dtype
-        )
+        padded_img = np.full((target_h, target_w, 3), fill_value, dtype=image.dtype)
         top = (target_h - new_h) // 2
         left = (target_w - new_w) // 2
         padded_img[top : top + new_h, left : left + new_w] = resized_img

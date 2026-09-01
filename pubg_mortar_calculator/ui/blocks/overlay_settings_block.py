@@ -30,7 +30,6 @@ class OverlaySettingsBlock(ct.CTkFrame):
             command=on_overlay_change,
         ).grid(row=1, column=0, padx=5, pady=5)
 
-        
         self.draw_elevation_marks_checkbox = Checkbox(
             self,
             text="Draw Elevation Marks",
