@@ -8,10 +8,16 @@ debug_files
 .pytest_cache
 temp
 *.onnx
+!assets/mark_model.onnx
+!assets/map_model.onnx
 .venv
-build
+build/**
+cpp/build/**
+!cpp/build/*.dll
+!cpp/build/*.exe
 dist
 *pth
 *pt
 .*
+!.gitattributes
 *dataset
