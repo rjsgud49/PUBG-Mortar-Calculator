@@ -53,9 +53,9 @@ def draw_marks(
     mark_position: tuple[int, int] | None,
 ) -> np.ndarray:
     if player_position is not None:
-        imgpr.draw_point(bgr_image, player_position, "Player", (255, 0, 0))
+        imgpr.draw_point(bgr_image, player_position, "플레이어", (255, 0, 0))
     if mark_position is not None:
-        imgpr.draw_point(bgr_image, mark_position, "Mark", (0, 0, 255))
+        imgpr.draw_point(bgr_image, mark_position, "마커", (0, 0, 255))
     return bgr_image
 
 

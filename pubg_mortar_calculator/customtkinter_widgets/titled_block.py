@@ -7,7 +7,7 @@ class TitledBlock(ct.CTkFrame):
 
         self.grid_columnconfigure(0, weight=1)
 
-        title_font = ct.CTkFont("Arial", 15, "bold")
+        title_font = ct.CTkFont("Malgun Gothic", 15, "bold")
 
         self.edit_frame = ct.CTkFrame(self, fg_color="transparent")
         self.edit_frame.grid(row=1, column=0, padx=5, pady=5, stick="we")

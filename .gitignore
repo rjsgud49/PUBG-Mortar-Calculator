@@ -9,6 +9,8 @@ debug_files
 temp
 *.onnx
 .venv
+build
+dist
 *pth
 *pt
 .*

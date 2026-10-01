@@ -3,7 +3,6 @@ from enum import Enum
 import cv2
 import numpy as np
 import onnxruntime as ort
-from matplotlib import pyplot as plt
 
 from ..utils import paths
 
@@ -67,6 +66,8 @@ class MinimapDetector:
 
 
 if __name__ == "__main__":
+    from matplotlib import pyplot as plt
+
     detector = MinimapDetector()
 
     image = cv2.imread(

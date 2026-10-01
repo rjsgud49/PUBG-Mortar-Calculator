@@ -13,14 +13,14 @@ class DictorSettingsBlock(ct.CTkFrame):
 
         self.dictor_checkbox = Checkbox(
             self,
-            text="Dictor",
+            text="음성 안내",
             saving_id="general_settings_dictor_checkbox",
             default=True,
         ).grid(row=0, column=0)
 
         self.volume_slider = Slider(
             self,
-            "Volume",
+            "음량",
             "dictor_settings_volume_slider",
             0,
             100,
@@ -32,7 +32,7 @@ class DictorSettingsBlock(ct.CTkFrame):
 
         self.rate_slider = Slider(
             self,
-            "Rate",
+            "속도",
             "dictor_settings_rate_slider",
             50,
             300,

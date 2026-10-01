@@ -54,9 +54,9 @@ class ElevationProcessor:
 
         if data.elevated_distance is not None:
             if data.elevated_distance < 120:
-                data.mortar_elevated_distance = "Too close"
+                data.mortar_elevated_distance = "너무 가까움"
             elif data.elevated_distance > 705:
-                data.mortar_elevated_distance = "Too far"
+                data.mortar_elevated_distance = "너무 멈"
             else:
                 data.mortar_elevated_distance = (
                     ElevationTools.calculate_mortar_distance(

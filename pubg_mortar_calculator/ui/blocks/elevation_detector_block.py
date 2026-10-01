@@ -12,7 +12,7 @@ class ElevationDetectorBlock(ct.CTkFrame):
 
         self.draw_points_checkbox = Checkbox(
             self,
-            text="Draw Points",
+            text="지점 표시",
             command=on_update,
             saving_id="elevation_draw_points_checkbox",
             default=True,
@@ -20,13 +20,13 @@ class ElevationDetectorBlock(ct.CTkFrame):
 
         self.draw_processed_checkbox = Checkbox(
             self,
-            text="Draw Processed",
+            text="처리 결과 표시",
             command=on_update,
             saving_id="elevation_draw_processed_checkbox",
         ).grid(row=0, column=1, padx=5, pady=5)
 
         self.fov_slider = Slider(
-            self, "FOV", "elevation_fov_slider", 80, 103, 103, on_update, False
+            self, "시야각", "elevation_fov_slider", 80, 103, 103, on_update, False
         )
         self.fov_slider.grid(
             row=1,
@@ -37,6 +37,6 @@ class ElevationDetectorBlock(ct.CTkFrame):
         )
 
         self.debug_load_elevation_preview_button = ct.CTkButton(
-            self, text="Load Elev. Preview", command=on_elev_preview
+            self, text="고도 미리보기 불러오기", command=on_elev_preview
         )
         self.debug_load_elevation_preview_button.grid(row=2, column=0, columnspan=2)

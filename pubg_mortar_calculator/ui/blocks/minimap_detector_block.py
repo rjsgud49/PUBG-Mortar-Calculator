@@ -12,7 +12,7 @@ class MinimapDetectorBlock(ct.CTkFrame):
 
         self.enabled_checkbox = Checkbox(
             self,
-            text="Enabled",
+            text="사용",
             command=on_update,
             saving_id="minimap_detector_enabled_checkbox",
             default=True,
@@ -20,7 +20,7 @@ class MinimapDetectorBlock(ct.CTkFrame):
 
         self.offset_slider = Slider(
             self,
-            "Offset",
+            "오프셋",
             "minimap_detector_offset_slider",
             0,
             1000,
@@ -31,7 +31,7 @@ class MinimapDetectorBlock(ct.CTkFrame):
 
         self.small_minimap_size_slider = Slider(
             self,
-            "Small Minimap Size",
+            "소형 미니맵 크기",
             "minimap_detector_small_minimap_size_slider",
             100,
             1000,
@@ -42,7 +42,7 @@ class MinimapDetectorBlock(ct.CTkFrame):
 
         self.large_minimap_size_slider = Slider(
             self,
-            "Large Minimap Size",
+            "대형 미니맵 크기",
             "minimap_detector_large_minimap_size_slider",
             100,
             1000,

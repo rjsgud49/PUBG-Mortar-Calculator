@@ -15,14 +15,14 @@ class GridDetectorBlock(ct.CTkFrame):
 
         self.show_processed_image_checkbox = Checkbox(
             self,
-            text="Draw Processed",
+            text="처리 결과 표시",
             command=on_update,
             saving_id="grid_detection_show_processed_image_checkbox",
         ).grid(row=0, column=0, padx=(10, 0))
 
         self.draw_grid_lines_checkbox = Checkbox(
             self,
-            text="Draw Grid",
+            text="격자 표시",
             command=on_update,
             saving_id="grid_detection_draw_grid_lines_checkbox",
             default=True,
@@ -30,7 +30,7 @@ class GridDetectorBlock(ct.CTkFrame):
 
         self.canny1_threshold_slider = Slider(
             self,
-            "Canny 1 Threshold",
+            "캐니 임계값 1",
             "grid_detection_canny1_threshold_slider",
             0,
             100,
@@ -41,7 +41,7 @@ class GridDetectorBlock(ct.CTkFrame):
 
         self.canny2_threshold_slider = Slider(
             self,
-            "Canny 2 Threshold",
+            "캐니 임계값 2",
             "grid_detection_canny2_threshold_slider",
             0,
             100,
@@ -52,7 +52,7 @@ class GridDetectorBlock(ct.CTkFrame):
 
         self.line_threshold_slider = Slider(
             self,
-            "Line Threshold",
+            "선 임계값",
             "grid_detection_line_threshold_slider",
             20,
             100,
@@ -63,7 +63,7 @@ class GridDetectorBlock(ct.CTkFrame):
 
         self.line_gap_slider = Slider(
             self,
-            "Line Gap",
+            "선 간격",
             "grid_detection_line_gap_slider",
             0,
             100,
@@ -74,7 +74,7 @@ class GridDetectorBlock(ct.CTkFrame):
 
         self.line_merge_threshold_slider = Slider(
             self,
-            "Merge Threshold",
+            "병합 임계값",
             "grid_detection_merge_threshold_slider",
             0,
             50,

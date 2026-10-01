@@ -15,6 +15,7 @@ class Combobox:
         return_value: bool = True,
         use_settings: bool = True,
         saving_id: str = "Combobox",
+        labels: dict[str, str] | None = None,
         **kwargs,
     ):
         self.master = master
@@ -23,11 +24,13 @@ class Combobox:
         self.return_value = return_value
         self.use_settings = use_settings
         self.id = saving_id
+        self.labels = labels or {}
+        self.values_by_label = {label: value for value, label in self.labels.items()}
         self.combobox = CTkComboBox(
             self.master,
             command=self.on_combobox,
             state=state,
-            values=list(values),
+            values=[self._label(value) for value in values],
             **kwargs,
         )
         if current_value is not None:
@@ -44,12 +47,19 @@ class Combobox:
         self.combobox.grid(row=row, column=column, **kwargs)
         return self
 
+    def _label(self, value: str) -> str:
+        return self.labels.get(value, value)
+
+    def _value(self, label: str) -> str:
+        return self.values_by_label.get(label, label)
+
     def on_combobox(self, value: str):
-        SL().set(self.id, value)
+        stored = self._value(value)
+        SL().set(self.id, stored)
 
         if self.command is not None:
             if self.return_value:
-                self.command(value, *self.command_args)
+                self.command(stored, *self.command_args)
             else:
                 self.command(*self.command_args)
 
@@ -84,7 +94,7 @@ class Combobox:
         self.combobox.configure(values=values)
 
     def set(self, value: str):
-        self.combobox.set(value)
+        self.combobox.set(self._label(value))
 
     def get(self) -> str:
-        return self.combobox.get()
+        return self._value(self.combobox.get())

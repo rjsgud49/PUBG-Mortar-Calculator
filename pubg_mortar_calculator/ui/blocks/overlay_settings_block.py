@@ -11,42 +11,42 @@ class OverlaySettingsBlock(ct.CTkFrame):
 
         self.enabled_checkbox = Checkbox(
             self,
-            text="Enabled",
+            text="사용",
             saving_id="overlay_settings_enabled_checkbox",
             command=on_overlay_change,
         ).grid(row=0, column=0, padx=5, pady=5)
 
         self.draw_borders_checkbox = Checkbox(
             self,
-            text="Draw Borders",
+            text="테두리 표시",
             saving_id="overlay_settings_draw_borders_checkbox",
             command=on_overlay_change,
         ).grid(row=0, column=1, padx=5, pady=5)
 
         self.draw_map_marks_checkbox = Checkbox(
             self,
-            text="Draw Map Marks",
+            text="지도 마커 표시",
             saving_id="overlay_settings_draw_map_marks_checkbox",
             command=on_overlay_change,
         ).grid(row=1, column=0, padx=5, pady=5)
 
         self.draw_elevation_marks_checkbox = Checkbox(
             self,
-            text="Draw Elevation Marks",
+            text="고도 마커 표시",
             saving_id="overlay_settings_draw_elevation_marks_checkbox",
             command=on_overlay_change,
         ).grid(row=1, column=1, padx=5, pady=5)
 
         self.draw_minimap_box_checkbox = Checkbox(
             self,
-            text="Draw Minimap Box",
+            text="미니맵 영역 표시",
             saving_id="overlay_settings_draw_minimap_box_checkbox",
             command=on_overlay_change,
         ).grid(row=2, column=0, columnspan=2, padx=5, pady=5)
 
         self.scale_slider = Slider(
             self,
-            "Scale",
+            "배율",
             "overlay_settings_scale_slider",
             50,
             250,

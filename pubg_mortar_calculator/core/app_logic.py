@@ -136,13 +136,13 @@ class AppLogic:
                 )
 
             def fmt(val, precision=".1f"):
-                return "None" if val is None else f"{val:{precision}}"
+                return "없음" if val is None else f"{val:{precision}}"
 
             text_to_display = [
-                f"Distance: {fmt(self.map_data.distance)}",
-                f"Mortar Distance: {self.elevation_data.mortar_elevated_distance}",
-                f"Elevation: {fmt(self.elevation_data.elevation)}",
-                f"Grid gap: {self.map_data.grid_gap}",
+                f"거리: {fmt(self.map_data.distance)}",
+                f"박격포 거리: {self.elevation_data.mortar_elevated_distance}",
+                f"고도: {fmt(self.elevation_data.elevation)}",
+                f"격자 간격: {self.map_data.grid_gap}",
             ]
 
             y = 30

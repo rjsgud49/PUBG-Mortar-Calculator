@@ -7,13 +7,16 @@ def main():
 
     LOGGER.info(f"{'=' * 15} PUBG-Mortar-Calculator {'=' * 15}")
 
-    LOGGER.info("Loading settings...")
+    LOGGER.info("설정을 불러오는 중...")
 
     app = App()
 
-    LOGGER.debug("Starting program...")
+    LOGGER.debug("프로그램을 시작합니다...")
     app.mainloop()
 
 
 if __name__ == "__main__":
+    import multiprocessing
+
+    multiprocessing.freeze_support()
     main()

@@ -156,7 +156,7 @@ class AppOverlay:
                     anchor="nw",
                     text=command.text,
                     fill=command.color,
-                    font=("Arial", command.font_size, "bold"),
+                    font=("Malgun Gothic", command.font_size, "bold"),
                 )
             elif isinstance(command, CreateRect):
                 if isinstance(command.x0, float):

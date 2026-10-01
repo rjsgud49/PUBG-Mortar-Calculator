@@ -1,5 +1,9 @@
+import os
+from pathlib import Path
+
 import cv2
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 
 def get_straight_line(
@@ -85,6 +89,26 @@ def replace_area_with_black(
         image[int(y1) : int(y2), int(x1) : int(x2)] = 0
 
 
+def _label_font(size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+    windir = Path(os.environ.get("WINDIR", r"C:\Windows"))
+    for name in ("malgun.ttf", "malgunbd.ttf"):
+        path = windir / "Fonts" / name
+        if path.exists():
+            return ImageFont.truetype(str(path), size=size)
+    return ImageFont.load_default()
+
+
+def _draw_label(
+    frame: np.ndarray,
+    title: str,
+    origin: tuple[int, int],
+    font: ImageFont.ImageFont | ImageFont.FreeTypeFont,
+):
+    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    ImageDraw.Draw(image).text(origin, title, font=font, fill=(255, 255, 255))
+    frame[:, :] = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+
 def draw_point(
     frame: np.ndarray,
     position: tuple[int, int],
@@ -103,12 +127,10 @@ def draw_point(
 
     cv2.circle(frame, position, radius_px, color, thickness_px)
 
-    font_thickness = max(1, int(font_scale_px * 0.5))
-
-    text_size = cv2.getTextSize(
-        title, cv2.FONT_HERSHEY_SIMPLEX, font_scale_px, font_thickness
-    )[0]
-    text_w, text_h = text_size
+    font_px = max(12, int(font_scale_px * 22))
+    font = _label_font(font_px)
+    text_box = font.getbbox(title)
+    text_w, text_h = text_box[2] - text_box[0], text_box[3] - text_box[1]
 
     bg_x, bg_y = position[0] - text_w // 2, position[1] - text_h - 10
     bg_x = max(0, min(bg_x, w - text_w))
@@ -122,15 +144,7 @@ def draw_point(
         -1,
     )
 
-    cv2.putText(
-        frame,
-        title,
-        (bg_x, bg_y),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        font_scale_px,
-        (255, 255, 255),
-        font_thickness,
-    )
+    _draw_label(frame, title, (bg_x, bg_y - text_h), font)
 
 
 def get_center_point(image: np.ndarray) -> tuple[int, int]:

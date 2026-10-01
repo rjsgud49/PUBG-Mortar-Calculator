@@ -33,11 +33,40 @@ from .blocks import (
 LOGGER = get_logger()
 
 
+def _write_window_icon():
+    icon_path = paths.app_icon()
+    if not icon_path.exists():
+        return None
+    from PIL import Image
+
+    image = Image.open(icon_path).convert("RGBA")
+    side = min(image.size)
+    left = (image.width - side) // 2
+    top = (image.height - side) // 2
+    image = image.crop((left, top, left + side, top + side))
+    dest = paths.temp() / "app.ico"
+    image.save(dest, format="ICO", sizes=[(size, size) for size in (16, 24, 32, 48, 64, 256)])
+    return dest
+
+ct.ThemeManager.theme["CTkFont"]["family"] = "Malgun Gothic"
+
+
 class App(ct.CTk):
+    def _set_app_icon(self):
+        try:
+            icon_path = _write_window_icon()
+        except Exception:
+            LOGGER.exception("앱 아이콘을 열지 못했습니다.")
+            return
+        if icon_path is None:
+            return
+        self.iconbitmap(str(icon_path))
+
     def __init__(self):
         super().__init__()
-        self.title("PUBG-Mortar-Calculator")
+        self.title("PUBG 박격포 계산기")
         self.resizable(False, False)
+        self._set_app_icon()
 
         self.logic = AppLogic()
 
@@ -57,15 +86,15 @@ class App(ct.CTk):
 
         self.map_data_block = CalculationDataBlock(
             self.left_frame,
-            "Map Data",
-            ["Grid Gap", "Mark Pos", "Player Pos", "Distance", "Minimap"],
+            "지도 정보",
+            ["격자 간격", "마커 위치", "플레이어 위치", "거리", "미니맵"],
         )
         self.map_data_block.grid(row=1, column=0)
 
         self.elevation_data_block = CalculationDataBlock(
             self.left_frame,
-            "Elevation Data",
-            ["Mark Pos", "Elevation", "Elevated Distance", "Mortar Elev. Dist."],
+            "고도 정보",
+            ["마커 위치", "고도", "고도 반영 거리", "박격포 사거리"],
         )
         self.elevation_data_block.grid(row=1, column=1)
 
@@ -74,49 +103,49 @@ class App(ct.CTk):
         self.right_frame.grid(row=0, column=1)
 
         self.tabview = ct.CTkTabview(self.right_frame)
-        self.tabview.add("General")
-        self.tabview.add("Grid")
-        self.tabview.add("Mark")
-        self.tabview.add("Elevation")
-        self.tabview.add("Minimap")
-        self.tabview.add("Dictor")
-        self.tabview.add("Overlay")
+        self.tabview.add("일반")
+        self.tabview.add("격자")
+        self.tabview.add("마커")
+        self.tabview.add("고도")
+        self.tabview.add("미니맵")
+        self.tabview.add("음성")
+        self.tabview.add("오버레이")
         self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.general_settings_block = GeneralSettingsBlock(
-            self.tabview.tab("General"),
+            self.tabview.tab("일반"),
             self._initialize_overlay,
             self._update_all_hotkeys,
         )
         self.general_settings_block.pack(fill="both", expand=True, padx=5, pady=5)
 
-        self.dictor_settings_block = DictorSettingsBlock(self.tabview.tab("Dictor"))
+        self.dictor_settings_block = DictorSettingsBlock(self.tabview.tab("음성"))
         self.dictor_settings_block.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.elevation_detector_block = ElevationDetectorBlock(
-            self.tabview.tab("Elevation"),
+            self.tabview.tab("고도"),
             self.process_elevation_image,
             self.load_elevation_preview,
         )
         self.elevation_detector_block.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.minimap_detector_block = MinimapDetectorBlock(
-            self.tabview.tab("Minimap"), self.process_map_image
+            self.tabview.tab("미니맵"), self.process_map_image
         )
         self.minimap_detector_block.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.grid_detector_block = GridDetectorBlock(
-            self.tabview.tab("Grid"), self.process_map_image
+            self.tabview.tab("격자"), self.process_map_image
         )
         self.grid_detector_block.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.mark_detector_block = MarkDetectorBlock(
-            self.tabview.tab("Mark"), self.process_map_image, self.load_map_preview
+            self.tabview.tab("마커"), self.process_map_image, self.load_map_preview
         )
         self.mark_detector_block.pack(fill="both", expand=True, padx=5, pady=5)
 
         self.overlay_settings_block = OverlaySettingsBlock(
-            self.tabview.tab("Overlay"), self._initialize_overlay
+            self.tabview.tab("오버레이"), self._initialize_overlay
         )
         self.overlay_settings_block.pack(fill="both", expand=True, padx=5, pady=5)
 
@@ -130,7 +159,7 @@ class App(ct.CTk):
 
         if not paths.map_detection_model().exists():
             LOGGER.warning(
-                "Can't find minimap detection model at "
+                "미니맵 감지 모델을 찾을 수 없습니다: "
                 + paths.map_detection_model().as_posix()
             )
             self.minimap_detector_block.enabled_checkbox.checkbox.configure(
@@ -140,7 +169,7 @@ class App(ct.CTk):
 
         if not paths.mark_detection_model().exists():
             LOGGER.warning(
-                "Can't find mark detection model at "
+                "마커 감지 모델을 찾을 수 없습니다: "
                 + paths.mark_detection_model().as_posix()
             )
             self.mark_detector_block.yolo_checkbox.checkbox.configure(
@@ -304,34 +333,43 @@ class App(ct.CTk):
 
     def _update_map_data_ui(self, data):
         self.map_data_block.set_value(
-            "Grid Gap", f"{data.grid_gap}px" if data.grid_gap else "None"
+            "격자 간격", f"{data.grid_gap}px" if data.grid_gap else "없음"
         )
-        self.map_data_block.set_value("Mark Pos", str(data.mark_position))
-        self.map_data_block.set_value("Player Pos", str(data.player_position))
         self.map_data_block.set_value(
-            "Distance", f"{round(data.distance, 1)}m" if data.distance else "None"
+            "마커 위치", "없음" if data.mark_position is None else str(data.mark_position)
         )
-        minimap_types = ["No", "Small", "Large"]
-        self.map_data_block.set_value("Minimap", minimap_types[data.minimap_type.value])
+        self.map_data_block.set_value(
+            "플레이어 위치",
+            "없음" if data.player_position is None else str(data.player_position),
+        )
+        self.map_data_block.set_value(
+            "거리", f"{round(data.distance, 1)}m" if data.distance else "없음"
+        )
+        minimap_types = ["없음", "소형", "대형"]
+        self.map_data_block.set_value("미니맵", minimap_types[data.minimap_type.value])
 
     def _update_elevation_data_ui(self, data):
-        self.elevation_data_block.set_value("Mark Pos", str(data.mark_position))
         self.elevation_data_block.set_value(
-            "Elevation",
-            f"{round(data.elevation, 1)}m" if data.elevation is not None else "None",
+            "마커 위치", "없음" if data.mark_position is None else str(data.mark_position)
         )
         self.elevation_data_block.set_value(
-            "Elevated Distance",
+            "고도",
+            f"{round(data.elevation, 1)}m" if data.elevation is not None else "없음",
+        )
+        self.elevation_data_block.set_value(
+            "고도 반영 거리",
             f"{round(data.elevated_distance, 1)}m"
             if data.elevated_distance is not None
-            else "None",
+            else "없음",
         )
         dist_str = (
             f"{data.mortar_elevated_distance} m"
             if isinstance(data.mortar_elevated_distance, int)
+            else "없음"
+            if data.mortar_elevated_distance is None
             else str(data.mortar_elevated_distance)
         )
-        self.elevation_data_block.set_value("Mortar Elev. Dist.", dist_str)
+        self.elevation_data_block.set_value("박격포 사거리", dist_str)
 
     def _initialize_overlay(self):
         if self.overlay is not None:
