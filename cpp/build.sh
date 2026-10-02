@@ -25,7 +25,7 @@ g++ -std=c++17 -O2 -Wall -Wextra -mwindows -municode \
   "$ROOT/build/app.res.o" \
   -lopencv_imgcodecs \
   $(pkg-config --libs opencv4) \
-  -lgdi32 -luser32 -lole32 -luuid -loleaut32 -lcomctl32 -lcomdlg32 \
+  -lgdi32 -luser32 -luxtheme -lole32 -luuid -loleaut32 -lcomctl32 -lcomdlg32 \
   -o "$ROOT/build/PUBG-Mortar-Calculator.exe"
 
 copy_deps() {

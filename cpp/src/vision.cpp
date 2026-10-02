@@ -38,32 +38,19 @@ void fill_black(cv::Mat& image, cv::Point a, cv::Point b) {
     }
 }
 
-void remove_danger_zones(cv::Mat& image) {
-    const int width = image.cols;
-    const int height = image.rows;
-    fill_black(image, {0, static_cast<int>(height * 0.83)}, {static_cast<int>(width * 0.13), height});
-    fill_black(image, {static_cast<int>(width * 0.75), static_cast<int>(height * 0.8)}, {width, height});
-    fill_black(image, {static_cast<int>(width * 0.8), 0}, {width, static_cast<int>(height * 0.25)});
-    fill_black(
-        image,
-        {static_cast<int>(width * 0.3), static_cast<int>(height * 0.9)},
-        {static_cast<int>(width * 0.7), height}
-    );
-}
-
 bool hsv_bounds(const std::string& color, cv::Scalar& lower, cv::Scalar& upper) {
     if (color == "orange") {
-        lower = cv::Scalar(10, 106, 123);
-        upper = cv::Scalar(13, 238, 231);
+        lower = cv::Scalar(4, 90, 110);
+        upper = cv::Scalar(18, 255, 255);
     } else if (color == "yellow") {
-        lower = cv::Scalar(23, 137, 163);
-        upper = cv::Scalar(36, 255, 240);
+        lower = cv::Scalar(18, 90, 120);
+        upper = cv::Scalar(42, 255, 255);
     } else if (color == "blue") {
-        lower = cv::Scalar(73, 65, 156);
-        upper = cv::Scalar(117, 203, 224);
+        lower = cv::Scalar(95, 70, 90);
+        upper = cv::Scalar(125, 255, 255);
     } else if (color == "green") {
-        lower = cv::Scalar(49, 101, 111);
-        upper = cv::Scalar(80, 195, 219);
+        lower = cv::Scalar(40, 70, 90);
+        upper = cv::Scalar(85, 255, 255);
     } else {
         return false;
     }
@@ -83,6 +70,8 @@ cv::Mat color_mask(const cv::Mat& bgr, const std::string& color, int blur, int t
     const int kernel = blur % 2 == 0 ? blur + 1 : blur;
     cv::GaussianBlur(mask, mask, cv::Size(kernel, kernel), 7);
     cv::threshold(mask, mask, threshold_value, 255, cv::THRESH_BINARY);
+    const cv::Mat kernel_shape = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel_shape);
     return mask;
 }
 
@@ -96,13 +85,155 @@ std::vector<std::vector<cv::Point>> contours_by_area(const cv::Mat& mask) {
     return contours;
 }
 
+struct RadiusRange {
+    float min_radius = 2;
+    float max_radius = 40;
+};
+
+RadiusRange radius_for_image(const cv::Mat& image, int min_radius, int max_radius) {
+    const double scale = std::max(image.cols, image.rows) / 1080.0;
+    RadiusRange range;
+    range.min_radius = std::max(2.0f, static_cast<float>(min_radius) * static_cast<float>(std::clamp(scale, 0.55, 2.5) * 0.7));
+    range.max_radius = std::max(range.min_radius + 8.0f, static_cast<float>(max_radius) * static_cast<float>(std::clamp(scale, 1.0, 2.5) * 1.8));
+    return range;
+}
+
+bool far_enough(cv::Point a, cv::Point b, float radius) {
+    const double dx = static_cast<double>(a.x - b.x);
+    const double dy = static_cast<double>(a.y - b.y);
+    return std::hypot(dx, dy) >= std::max(16.0, static_cast<double>(radius) * 1.3);
+}
+
+bool marker_shape(const cv::Mat& mask, const std::vector<cv::Point>& contour, cv::Point2f center, float radius, double& circularity) {
+    const double area = std::abs(cv::contourArea(contour));
+    const double peri = cv::arcLength(contour, true);
+    if (peri < 1.0 || area < 8.0 || radius < 1.0f) {
+        return false;
+    }
+    circularity = 4.0 * CV_PI * area / (peri * peri);
+    const cv::Rect box = cv::boundingRect(contour);
+    const double aspect = static_cast<double>(box.width) / std::max(box.height, 1);
+    if (circularity < 0.72 || aspect < 0.62 || aspect > 1.62) {
+        return false;
+    }
+
+    int filled[8] = {};
+    int total[8] = {};
+    const int reach = std::max(2, static_cast<int>(std::ceil(radius)));
+    const int cx = cvRound(center.x);
+    const int cy = cvRound(center.y);
+    const int reach_sq = reach * reach;
+    for (int dy = -reach; dy <= reach; ++dy) {
+        for (int dx = -reach; dx <= reach; ++dx) {
+            if (dx * dx + dy * dy > reach_sq) {
+                continue;
+            }
+            const int x = cx + dx;
+            const int y = cy + dy;
+            if (x < 0 || y < 0 || x >= mask.cols || y >= mask.rows) {
+                continue;
+            }
+            int sector = static_cast<int>((std::atan2(static_cast<double>(dy), static_cast<double>(dx)) + CV_PI) / (2.0 * CV_PI) * 8.0);
+            sector = std::clamp(sector, 0, 7);
+            ++total[sector];
+            if (mask.at<uchar>(y, x) > 0) {
+                ++filled[sector];
+            }
+        }
+    }
+    int covered = 0;
+    int empty = 0;
+    for (int i = 0; i < 8; ++i) {
+        if (total[i] == 0) {
+            ++empty;
+            continue;
+        }
+        const double ratio = static_cast<double>(filled[i]) / total[i];
+        if (ratio >= 0.18) {
+            ++covered;
+        } else if (ratio < 0.08) {
+            ++empty;
+        }
+    }
+    return covered >= 6 && empty <= 2;
+}
+
+void blackout_hud(cv::Mat& image) {
+    const int width = image.cols;
+    const int height = image.rows;
+    fill_black(image, {0, static_cast<int>(height * 0.80)}, {static_cast<int>(width * 0.22), height});
+    fill_black(image, {static_cast<int>(width * 0.75), static_cast<int>(height * 0.78)}, {width, height});
+    fill_black(image, {static_cast<int>(width * 0.78), 0}, {width, static_cast<int>(height * 0.22)});
+    fill_black(image, {static_cast<int>(width * 0.28), static_cast<int>(height * 0.88)}, {static_cast<int>(width * 0.72), height});
+}
+
 std::pair<std::optional<cv::Point>, std::optional<cv::Point>> find_player_and_mark(
     const cv::Mat& mask,
-    int min_radius,
-    int max_radius
+    float min_radius,
+    float max_radius
 ) {
+    struct Hit {
+        cv::Point center;
+        float radius = 0;
+        double area = 0;
+    };
+    std::vector<Hit> hits;
+    for (const auto& contour : contours_by_area(mask)) {
+        cv::Point2f center;
+        float radius = 0;
+        cv::minEnclosingCircle(contour, center, radius);
+        if (radius < 3.0f || radius >= max_radius) {
+            continue;
+        }
+        double circularity = 0;
+        if (!marker_shape(mask, contour, center, radius, circularity)) {
+            continue;
+        }
+        const cv::Point point(cvRound(center.x), cvRound(center.y));
+        bool duplicate = false;
+        for (const Hit& hit : hits) {
+            if (!far_enough(hit.center, point, std::max(hit.radius, radius))) {
+                duplicate = true;
+                break;
+            }
+        }
+        if (!duplicate) {
+            hits.push_back({point, radius, std::abs(cv::contourArea(contour))});
+        }
+    }
+    if (hits.size() >= 2) {
+        std::vector<float> radii;
+        radii.reserve(hits.size());
+        for (const Hit& hit : hits) {
+            radii.push_back(hit.radius);
+        }
+        std::nth_element(radii.begin(), radii.begin() + static_cast<std::ptrdiff_t>(radii.size() / 2), radii.end());
+        const float typical = radii[radii.size() / 2];
+        hits.erase(
+            std::remove_if(hits.begin(), hits.end(), [&](const Hit& hit) {
+                return hit.radius > typical * 1.8f && hit.radius > min_radius;
+            }),
+            hits.end()
+        );
+    }
+    std::sort(hits.begin(), hits.end(), [](const Hit& a, const Hit& b) { return a.area > b.area; });
+    if (hits.size() > 2) {
+        hits.resize(2);
+    }
     std::optional<cv::Point> player;
     std::optional<cv::Point> mark;
+    if (!hits.empty()) {
+        player = hits[0].center;
+    }
+    if (hits.size() >= 2) {
+        mark = cv::Point(hits[1].center.x, cvRound(hits[1].center.y + hits[1].radius));
+    }
+    return {player, mark};
+}
+
+std::optional<cv::Point> find_largest_mark(const cv::Mat& mask, int min_radius, int max_radius) {
+    std::optional<cv::Point> best;
+    double best_roundness = -1;
     for (const auto& contour : contours_by_area(mask)) {
         cv::Point2f center;
         float radius = 0;
@@ -110,26 +241,16 @@ std::pair<std::optional<cv::Point>, std::optional<cv::Point>> find_player_and_ma
         if (!(min_radius < radius && radius < max_radius)) {
             continue;
         }
-        if (!player) {
-            player = cv::Point(cvRound(center.x), cvRound(center.y));
-        } else if (!mark) {
-            mark = cv::Point(cvRound(center.x), cvRound(center.y + radius));
-            break;
+        double circularity = 0;
+        if (!marker_shape(mask, contour, center, radius, circularity)) {
+            continue;
+        }
+        if (circularity > best_roundness) {
+            best_roundness = circularity;
+            best = cv::Point(cvRound(center.x), cvRound(center.y));
         }
     }
-    return {player, mark};
-}
-
-std::optional<cv::Point> find_largest_mark(const cv::Mat& mask, int min_radius, int max_radius) {
-    for (const auto& contour : contours_by_area(mask)) {
-        cv::Point2f center;
-        float radius = 0;
-        cv::minEnclosingCircle(contour, center, radius);
-        if (min_radius < radius && radius < max_radius) {
-            return cv::Point(cvRound(center.x), cvRound(center.y));
-        }
-    }
-    return std::nullopt;
+    return best;
 }
 
 Segment average_cluster(const std::vector<Segment>& cluster, int index) {
@@ -183,7 +304,199 @@ struct GridDetect {
     std::vector<Segment> horizontal;
     std::vector<Segment> vertical;
     cv::Mat edges;
+    std::optional<double> pitch;
 };
+
+struct PitchEstimate {
+    double value = 0;
+    int support = 0;
+};
+
+std::vector<double> line_positions(const std::vector<Segment>& lines, bool horizontal) {
+    std::vector<double> positions;
+    positions.reserve(lines.size());
+    for (const Segment& line : lines) {
+        positions.push_back(horizontal ? static_cast<double>(line.y0) : static_cast<double>(line.x0));
+    }
+    std::sort(positions.begin(), positions.end());
+    return positions;
+}
+
+void append_gaps(const std::vector<double>& positions, std::vector<double>& gaps) {
+    for (size_t i = 1; i < positions.size(); ++i) {
+        const double gap = positions[i] - positions[i - 1];
+        if (gap > 1.0) {
+            gaps.push_back(gap);
+        }
+    }
+}
+
+PitchEstimate majority_pitch(const std::vector<double>& gaps) {
+    PitchEstimate result;
+    if (gaps.empty()) {
+        return result;
+    }
+    std::vector<double> sorted = gaps;
+    std::sort(sorted.begin(), sorted.end());
+    int best_count = 0;
+    double best_sum = 0;
+    for (double center : sorted) {
+        const double tolerance = std::max(3.0, center * 0.06);
+        double sum = 0;
+        int count = 0;
+        for (double gap : sorted) {
+            if (std::abs(gap - center) <= tolerance) {
+                sum += gap;
+                ++count;
+            }
+        }
+        if (count > best_count) {
+            best_count = count;
+            best_sum = sum;
+        }
+    }
+    result.support = best_count;
+    result.value = best_sum / static_cast<double>(best_count);
+    const bool repeated = best_count >= 2 || best_count * 2 > static_cast<int>(sorted.size());
+    if (!repeated) {
+        result.value = sorted.size() % 2 == 0
+                           ? (sorted[sorted.size() / 2 - 1] + sorted[sorted.size() / 2]) / 2.0
+                           : sorted[sorted.size() / 2];
+    }
+    return result;
+}
+
+struct AxisFit {
+    double anchor = 0;
+    double origin = 0;
+};
+
+std::optional<AxisFit> fit_axis(const std::vector<double>& positions, double pitch) {
+    if (positions.size() < 2 || pitch < 4.0) {
+        return std::nullopt;
+    }
+    const double tolerance = std::max(6.0, pitch * 0.18);
+    int best_count = 0;
+    double anchor = positions.front();
+    for (double candidate : positions) {
+        int count = 0;
+        for (double pos : positions) {
+            const double steps = std::round((pos - candidate) / pitch);
+            if (std::abs((pos - candidate) - steps * pitch) <= tolerance) {
+                ++count;
+            }
+        }
+        if (count > best_count) {
+            best_count = count;
+            anchor = candidate;
+        }
+    }
+    if (best_count < 2 || (best_count < 3 && best_count * 2 < static_cast<int>(positions.size()))) {
+        return std::nullopt;
+    }
+    std::vector<double> origins;
+    origins.reserve(static_cast<size_t>(best_count));
+    for (double pos : positions) {
+        const double steps = std::round((pos - anchor) / pitch);
+        if (std::abs((pos - anchor) - steps * pitch) <= tolerance) {
+            origins.push_back(pos - steps * pitch);
+        }
+    }
+    if (origins.empty()) {
+        return std::nullopt;
+    }
+    std::sort(origins.begin(), origins.end());
+    const size_t mid = origins.size() / 2;
+    const double origin = origins.size() % 2 == 0 ? (origins[mid - 1] + origins[mid]) / 2.0 : origins[mid];
+    return AxisFit{anchor, origin};
+}
+
+std::vector<Segment> synthesize_lines(double origin, double pitch, int extent, int span, bool horizontal) {
+    std::vector<Segment> lines;
+    if (pitch < 4.0 || extent <= 1 || span <= 1) {
+        return lines;
+    }
+    const int k_min = static_cast<int>(std::ceil((-0.5 - origin) / pitch));
+    const int k_max = static_cast<int>(std::floor((static_cast<double>(extent) - 0.5 - origin) / pitch));
+    if (k_max < k_min || k_max - k_min > extent) {
+        return lines;
+    }
+    for (int k = k_min; k <= k_max; ++k) {
+        const int pos = static_cast<int>(std::lround(origin + static_cast<double>(k) * pitch));
+        if (pos < 0 || pos >= extent) {
+            continue;
+        }
+        if (!lines.empty()) {
+            const int previous = horizontal ? lines.back().y0 : lines.back().x0;
+            if (previous == pos) {
+                continue;
+            }
+        }
+        if (horizontal) {
+            lines.push_back({0, pos, span - 1, pos});
+        } else {
+            lines.push_back({pos, 0, pos, span - 1});
+        }
+    }
+    return lines;
+}
+
+void complete_grid(GridDetect& grid, int cols, int rows) {
+    const std::vector<double> horizontal = line_positions(grid.horizontal, true);
+    const std::vector<double> vertical = line_positions(grid.vertical, false);
+    std::vector<double> gaps;
+    append_gaps(horizontal, gaps);
+    append_gaps(vertical, gaps);
+    const PitchEstimate estimate = majority_pitch(gaps);
+    if (estimate.value <= 1.0) {
+        return;
+    }
+    double pitch = estimate.value;
+    if (estimate.support >= 2) {
+        const double tolerance = std::max(6.0, pitch * 0.18);
+        double numerator = 0;
+        double denominator = 0;
+        auto accumulate = [&](const std::optional<AxisFit>& fit, const std::vector<double>& positions) {
+            if (!fit) {
+                return;
+            }
+            for (double pos : positions) {
+                const double steps = std::round((pos - fit->anchor) / pitch);
+                if (std::abs((pos - fit->anchor) - steps * pitch) > tolerance) {
+                    continue;
+                }
+                numerator += steps * (pos - fit->anchor);
+                denominator += steps * steps;
+            }
+        };
+        const std::optional<AxisFit> horizontal_fit = fit_axis(horizontal, pitch);
+        const std::optional<AxisFit> vertical_fit = fit_axis(vertical, pitch);
+        accumulate(horizontal_fit, horizontal);
+        accumulate(vertical_fit, vertical);
+        if (denominator >= 1.0) {
+            const double refined = numerator / denominator;
+            if (refined > pitch * 0.85 && refined < pitch * 1.15) {
+                pitch = refined;
+            }
+        }
+    }
+    grid.pitch = pitch;
+    if (estimate.support < 2 || cols <= 1 || rows <= 1) {
+        return;
+    }
+    if (const std::optional<AxisFit> fit = fit_axis(horizontal, pitch)) {
+        const std::vector<Segment> predicted = synthesize_lines(fit->origin, pitch, rows, cols, true);
+        if (!predicted.empty()) {
+            grid.horizontal = predicted;
+        }
+    }
+    if (const std::optional<AxisFit> fit = fit_axis(vertical, pitch)) {
+        const std::vector<Segment> predicted = synthesize_lines(fit->origin, pitch, cols, rows, false);
+        if (!predicted.empty()) {
+            grid.vertical = predicted;
+        }
+    }
+}
 
 struct CircleMark {
     int x;
@@ -372,44 +685,14 @@ std::optional<double> calculate_grid_gap(
     const std::vector<Segment>& horizontal,
     const std::vector<Segment>& vertical
 ) {
-    std::vector<Segment> sorted_h = horizontal;
-    std::vector<Segment> sorted_v = vertical;
-    std::sort(sorted_h.begin(), sorted_h.end(), [](const Segment& a, const Segment& b) {
-        return (a.y0 + a.y1) < (b.y0 + b.y1);
-    });
-    std::sort(sorted_v.begin(), sorted_v.end(), [](const Segment& a, const Segment& b) {
-        return (a.x0 + a.x1) < (b.x0 + b.x1);
-    });
-
     std::vector<double> gaps;
-    for (size_t i = 1; i < sorted_h.size(); ++i) {
-        gaps.push_back(std::abs(static_cast<double>(sorted_h[i].y0 - sorted_h[i - 1].y0)));
-    }
-    for (size_t i = 1; i < sorted_v.size(); ++i) {
-        gaps.push_back(std::abs(static_cast<double>(sorted_v[i].x0 - sorted_v[i - 1].x0)));
-    }
-    if (gaps.empty()) {
+    append_gaps(line_positions(horizontal, true), gaps);
+    append_gaps(line_positions(vertical, false), gaps);
+    const PitchEstimate estimate = majority_pitch(gaps);
+    if (estimate.value <= 1.0) {
         return std::nullopt;
     }
-    std::sort(gaps.begin(), gaps.end());
-    const double median = gaps.size() % 2 == 0
-                              ? (gaps[gaps.size() / 2 - 1] + gaps[gaps.size() / 2]) / 2.0
-                              : gaps[gaps.size() / 2];
-    if (median <= 0) {
-        return std::nullopt;
-    }
-    double sum = 0;
-    int count = 0;
-    for (double gap : gaps) {
-        if (std::abs(gap - median) <= 0.01 * median) {
-            sum += gap;
-            ++count;
-        }
-    }
-    if (count > 0) {
-        return sum / count;
-    }
-    return median;
+    return estimate.value;
 }
 
 std::optional<double> planar_distance(cv::Point player, cv::Point mark, double grid_gap) {
@@ -431,6 +714,69 @@ double elevation_meters(int center_y, int mark_y, double fov_deg, double distanc
     const double pixels = static_cast<double>(mark_y - center_y);
     const double angle = std::atan(std::tan(vertical_fov / 2.0) / center_y * pixels);
     return -std::tan(angle) * distance;
+}
+
+std::vector<YoloBox> detect_tiles(OnnxModels& models, const cv::Mat& image) {
+    if (image.empty()) {
+        return {};
+    }
+    auto pieces = [](int length) {
+        if (length <= 800) {
+            return 1;
+        }
+        if (length <= 1400) {
+            return 2;
+        }
+        return 3;
+    };
+    const int across = pieces(image.cols);
+    const int down = pieces(image.rows);
+    if (across == 1 && down == 1) {
+        return models.detect(image);
+    }
+    auto window_for = [](int length, int count) {
+        if (count <= 1) {
+            return length;
+        }
+        const double factor = (count - 1) * 0.8 + 1.0;
+        return std::min(length, std::max(320, static_cast<int>(std::ceil(length / factor))));
+    };
+    const int tile_w = window_for(image.cols, across);
+    const int tile_h = window_for(image.rows, down);
+    std::vector<YoloBox> found;
+    auto keep = [&](YoloBox box) {
+        const int cx = (box.x0 + box.x1) / 2;
+        const int cy = (box.y0 + box.y1) / 2;
+        for (YoloBox& kept : found) {
+            if (kept.class_id != box.class_id) {
+                continue;
+            }
+            const int kx = (kept.x0 + kept.x1) / 2;
+            const int ky = (kept.y0 + kept.y1) / 2;
+            if (std::abs(kx - cx) + std::abs(ky - cy) < 28) {
+                if (box.confidence > kept.confidence) {
+                    kept = box;
+                }
+                return;
+            }
+        }
+        found.push_back(std::move(box));
+    };
+    for (int row = 0; row < down; ++row) {
+        const int top = down == 1 ? 0 : (image.rows - tile_h) * row / (down - 1);
+        for (int col = 0; col < across; ++col) {
+            const int left = across == 1 ? 0 : (image.cols - tile_w) * col / (across - 1);
+            const cv::Rect tile(left, top, tile_w, tile_h);
+            for (YoloBox box : models.detect(image(tile))) {
+                box.x0 += left;
+                box.y0 += top;
+                box.x1 += left;
+                box.y1 += top;
+                keep(std::move(box));
+            }
+        }
+    }
+    return found;
 }
 
 double elevated_distance(double distance, double elevation) {
@@ -478,55 +824,24 @@ MapResult analyze_map(const cv::Mat& bgr, const Settings& settings, OnnxModels* 
         }
     }
 
-    const GridDetect grid = detect_grid_lines(image, settings);
-    result.grid_gap = calculate_grid_gap(grid.horizontal, grid.vertical);
-    if (result.minimap_type == 0) {
-        remove_danger_zones(image);
-    }
+    GridDetect grid = detect_grid_lines(image, settings);
+    complete_grid(grid, image.cols, image.rows);
+    result.grid_gap = grid.pitch ? grid.pitch : calculate_grid_gap(grid.horizontal, grid.vertical);
 
     cv::Mat hsv_mask;
     std::vector<cv::Rect> samples;
-    const bool use_yolo = settings.mark_yolo && models != nullptr && models->has_mark();
-    if (!use_yolo) {
-        hsv_mask = color_mask(image, settings.color, 3, 30);
-        const auto [player, mark] = find_player_and_mark(hsv_mask, settings.min_radius, settings.max_radius);
-        result.player = player;
-        result.mark = mark;
-    } else {
-        hsv_mask = color_mask(image, settings.color, 19, 1);
-        std::vector<YoloBox> unique;
-        for (const CircleMark& circle : all_circles(hsv_mask)) {
-            const int margin = std::max(static_cast<int>(std::lround(circle.radius * 3.0)), 50);
-            const int x_min = std::max(0, circle.x - margin);
-            const int y_min = std::max(0, circle.y - margin);
-            const int x_max = std::min(image.cols, circle.x + margin);
-            const int y_max = std::min(image.rows, circle.y + margin);
-            if (x_max <= x_min || y_max <= y_min) {
-                continue;
-            }
-            const cv::Rect sample(x_min, y_min, x_max - x_min, y_max - y_min);
-            samples.push_back(sample);
-            for (YoloBox box : models->detect(image(sample))) {
-                box.x0 += x_min;
-                box.y0 += y_min;
-                box.x1 += x_min;
-                box.y1 += y_min;
-                bool exists = false;
-                for (const YoloBox& kept : unique) {
-                    if (kept.class_id != box.class_id) {
-                        continue;
-                    }
-                    if (std::abs(kept.x0 - box.x0) + std::abs(kept.y0 - box.y0) < 10) {
-                        exists = true;
-                        break;
-                    }
-                }
-                if (!exists) {
-                    unique.push_back(box);
-                }
-            }
-        }
-        for (const YoloBox& box : unique) {
+    const bool model_ready = models != nullptr && models->has_mark();
+    const bool use_yolo = settings.mark_yolo && model_ready;
+    const RadiusRange radii = radius_for_image(image, settings.min_radius, settings.max_radius);
+    cv::Mat mark_image = image.clone();
+    blackout_hud(mark_image);
+    hsv_mask = color_mask(mark_image, settings.color, use_yolo ? 5 : 3, use_yolo ? 8 : 18);
+    const auto [player, mark] = find_player_and_mark(hsv_mask, radii.min_radius, radii.max_radius);
+    result.player = player;
+    result.mark = mark;
+
+    auto take_yolo = [&](const std::vector<YoloBox>& boxes) {
+        for (const YoloBox& box : boxes) {
             if (box.name.find(settings.color) == std::string::npos) {
                 continue;
             }
@@ -534,10 +849,52 @@ MapResult analyze_map(const cv::Mat& bgr, const Settings& settings, OnnxModels* 
             const cv::Point center((box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2);
             if (is_player && !result.player) {
                 result.player = center;
-            } else if (!result.mark) {
+            } else if (!is_player && !result.mark) {
                 result.mark = cv::Point(center.x, box.y1);
             }
         }
+    };
+
+    if (use_yolo || ((!result.player || !result.mark) && model_ready)) {
+        std::vector<YoloBox> unique;
+        auto absorb = [&](YoloBox box) {
+            for (const YoloBox& kept : unique) {
+                if (kept.class_id == box.class_id && std::abs(kept.x0 - box.x0) + std::abs(kept.y0 - box.y0) < 10) {
+                    return;
+                }
+            }
+            unique.push_back(box);
+        };
+        if (use_yolo) {
+            for (const CircleMark& circle : all_circles(hsv_mask)) {
+                if (!(radii.min_radius < circle.radius && circle.radius < radii.max_radius * 1.4f)) {
+                    continue;
+                }
+                const int margin = std::max(static_cast<int>(std::lround(circle.radius * 3.0)), 50);
+                const int x_min = std::max(0, circle.x - margin);
+                const int y_min = std::max(0, circle.y - margin);
+                const int x_max = std::min(image.cols, circle.x + margin);
+                const int y_max = std::min(image.rows, circle.y + margin);
+                if (x_max <= x_min || y_max <= y_min) {
+                    continue;
+                }
+                const cv::Rect sample(x_min, y_min, x_max - x_min, y_max - y_min);
+                samples.push_back(sample);
+                for (YoloBox box : models->detect(image(sample))) {
+                    box.x0 += x_min;
+                    box.y0 += y_min;
+                    box.x1 += x_min;
+                    box.y1 += y_min;
+                    absorb(box);
+                }
+            }
+        }
+        if (!result.player || !result.mark || unique.empty()) {
+            for (const YoloBox& box : detect_tiles(*models, image)) {
+                absorb(box);
+            }
+        }
+        take_yolo(unique);
     }
 
     if (result.player && result.mark && result.grid_gap) {
@@ -597,8 +954,13 @@ ElevationResult analyze_elevation(
     x1 = std::clamp(x1, x0 + 1, image.cols);
     result.x_start = x0;
     const cv::Mat strip = image(cv::Rect(x0, 0, x1 - x0, image.rows));
-    const cv::Mat mask = color_mask(strip, settings.color, 19, 1);
-    const std::optional<cv::Point> local = find_largest_mark(mask, settings.min_radius, settings.max_radius);
+    const cv::Mat mask = color_mask(strip, settings.color, 5, 8);
+    const RadiusRange radii = radius_for_image(bgr, settings.min_radius, settings.max_radius);
+    const std::optional<cv::Point> local = find_largest_mark(
+        mask,
+        std::max(1, static_cast<int>(radii.min_radius)),
+        std::max(4, static_cast<int>(radii.max_radius))
+    );
     result.mark = local;
 
     if (local && planar) {

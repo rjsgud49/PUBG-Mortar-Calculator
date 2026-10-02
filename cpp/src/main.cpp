@@ -10,6 +10,7 @@
 #include "vision.hpp"
 
 #include <windows.h>
+#include <uxtheme.h>
 #include <objbase.h>
 #include <commctrl.h>
 #include <commdlg.h>
@@ -87,10 +88,27 @@ enum {
     IDC_CAPTURE = 921,
     IDC_KEY_FEEDBACK = 922,
     IDC_OVERLAY_PLACE = 923,
+    IDC_TAB_HINT = 924,
 };
 
 constexpr UINT_PTR kFollowTimer = 1;
-constexpr int kPaneX = 520;
+constexpr COLORREF kBg = RGB(32, 32, 32);
+constexpr COLORREF kPanel = RGB(46, 46, 49);
+constexpr COLORREF kField = RGB(58, 60, 64);
+constexpr COLORREF kText = RGB(240, 240, 240);
+constexpr COLORREF kHint = RGB(196, 210, 224);
+constexpr int kMapX = 8;
+constexpr int kMapY = 8;
+constexpr int kMapW = 430;
+constexpr int kMapH = 188;
+constexpr int kElevX = 446;
+constexpr int kElevW = 68;
+constexpr int kElevH = 330;
+constexpr int kInfoY = 204;
+constexpr int kPaneX = 524;
+constexpr int kPaneW = 492;
+constexpr int kClientW = 1024;
+constexpr int kClientH = 424;
 
 struct PreviewState {
     HBITMAP bitmap = nullptr;
@@ -135,9 +153,17 @@ struct App {
 
 App g_app;
 HFONT g_font = nullptr;
+HFONT g_title_font = nullptr;
 HBRUSH g_dark = nullptr;
+HBRUSH g_panel = nullptr;
+HBRUSH g_field = nullptr;
 std::vector<HWND> g_tabs[7];
+int g_tab_bottom[7] = {};
 std::unordered_map<int, HWND> g_slider_labels;
+std::unordered_map<int, int> g_slider_committed;
+WNDPROC g_slider_proc = nullptr;
+
+LRESULT CALLBACK slider_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
 
 std::wstring exe_directory() {
     wchar_t buffer[MAX_PATH] = {};
@@ -146,9 +172,18 @@ std::wstring exe_directory() {
 }
 
 void set_text(HWND hwnd, const std::wstring& text) {
-    if (hwnd != nullptr) {
-        SetWindowTextW(hwnd, text.c_str());
+    if (hwnd == nullptr) {
+        return;
     }
+    const int length = GetWindowTextLengthW(hwnd);
+    std::wstring current(static_cast<size_t>(length), L'\0');
+    if (length > 0) {
+        GetWindowTextW(hwnd, current.data(), length + 1);
+    }
+    if (current == text) {
+        return;
+    }
+    SetWindowTextW(hwnd, text.c_str());
 }
 
 void set_utf8(HWND hwnd, const std::string& text) {
@@ -321,8 +356,16 @@ HWND add_widget(int tab, const wchar_t* klass, const std::wstring& text, DWORD s
         nullptr
     );
     SendMessageW(hwnd, WM_SETFONT, reinterpret_cast<WPARAM>(g_font), TRUE);
+    if (lstrcmpW(klass, L"BUTTON") == 0 && (style & BS_TYPEMASK) == BS_AUTOCHECKBOX) {
+        SetWindowTheme(hwnd, L"", L"");
+    }
+    if (lstrcmpW(klass, L"EDIT") == 0 || lstrcmpW(klass, L"COMBOBOX") == 0) {
+        SetWindowTheme(hwnd, L"", L"");
+    }
     if (tab >= 0) {
         g_tabs[tab].push_back(hwnd);
+        const int used_height = lstrcmpW(klass, L"COMBOBOX") == 0 ? 26 : height;
+        g_tab_bottom[tab] = std::max(g_tab_bottom[tab], y + used_height);
     }
     return hwnd;
 }
@@ -332,11 +375,42 @@ HWND add_utf8(int tab, const wchar_t* klass, const std::string& text, DWORD styl
 }
 
 void add_slider(int tab, int id, const std::string& name, int y, int min_value, int max_value) {
-    add_utf8(tab, L"STATIC", name, SS_LEFT | SS_CENTERIMAGE, kPaneX + 8, y, 112, 22, 0);
-    HWND bar = add_widget(tab, TRACKBAR_CLASSW, L"", TBS_NOTICKS, kPaneX + 120, y, 150, 24, id);
-    HWND value = add_widget(tab, L"STATIC", L"0", SS_LEFT | SS_CENTERIMAGE, kPaneX + 274, y, 40, 22, 0);
+    add_utf8(tab, L"STATIC", name, SS_LEFT | SS_CENTERIMAGE, kPaneX + 12, y, 156, 26, 0);
+    HWND bar = add_widget(tab, TRACKBAR_CLASSW, L"", TBS_NOTICKS, kPaneX + 172, y, 220, 28, id);
+    HWND value = add_widget(tab, L"STATIC", L"0", SS_LEFT | SS_CENTERIMAGE, kPaneX + 400, y, 56, 26, 0);
     SendMessageW(bar, TBM_SETRANGE, TRUE, MAKELPARAM(min_value, max_value));
     g_slider_labels[id] = value;
+    if (g_slider_proc == nullptr) {
+        g_slider_proc = reinterpret_cast<WNDPROC>(GetWindowLongPtrW(bar, GWLP_WNDPROC));
+    }
+    SetWindowLongPtrW(bar, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(slider_proc));
+}
+
+void set_tab_hint(int index) {
+    const char* hints[] = {
+        "지도가 보일 때 거리 키, 박격포로 핑을 조준했을 때 사거리 키를 누르세요.",
+        "칸 선이 안 보이면 흐린 선을 낮추세요. 글자까지 선이 되면 진한 선을 높이세요.",
+        "게임에서 찍은 핑 색과 같아야 합니다. 내 위치와 목표 핑이 둘 다 잡혀야 거리가 나옵니다.",
+        "평면 거리가 먼저 있어야 합니다. 시야각은 게임 설정과 같게 맞추세요.",
+        "M으로 연 큰 지도만 쓸 때는 미니맵 사용을 끄세요.",
+        "계산이 끝나면 거리를 읽어 줍니다.",
+        "게임 위에 숫자와 선을 띄울 때만 사용을 켜세요.",
+    };
+    if (index < 0 || index > 6) {
+        index = 0;
+    }
+    set_utf8(GetDlgItem(g_app.window, IDC_TAB_HINT), hints[index]);
+}
+
+void place_tab_hint(int index) {
+    if (index < 0 || index > 6) {
+        index = 0;
+    }
+    HWND hint = GetDlgItem(g_app.window, IDC_TAB_HINT);
+    if (hint == nullptr) {
+        return;
+    }
+    SetWindowPos(hint, nullptr, kPaneX + 12, g_tab_bottom[index] + 8, kPaneW - 24, 40, SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void show_tab(int index) {
@@ -345,6 +419,9 @@ void show_tab(int index) {
             ShowWindow(hwnd, tab == index ? SW_SHOW : SW_HIDE);
         }
     }
+    set_tab_hint(index);
+    place_tab_hint(index);
+    RedrawWindow(g_app.window, nullptr, nullptr, RDW_INVALIDATE | RDW_ALLCHILDREN | RDW_ERASE);
 }
 
 bool checked(int id) {
@@ -423,11 +500,63 @@ void set_check(int id, bool value) {
 }
 
 void set_slider(int id, int value) {
+    g_slider_committed[id] = value;
     SendMessageW(GetDlgItem(g_app.window, id), TBM_SETPOS, TRUE, value);
     auto found = g_slider_labels.find(id);
     if (found != g_slider_labels.end()) {
         set_text(found->second, std::to_wstring(value));
     }
+}
+
+bool slider_blocked() {
+    return (GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+}
+
+bool point_on_thumb(HWND hwnd, LPARAM lparam) {
+    RECT thumb{};
+    SendMessageW(hwnd, TBM_GETTHUMBRECT, 0, reinterpret_cast<LPARAM>(&thumb));
+    InflateRect(&thumb, 4, 6);
+    const POINT point{
+        static_cast<int>(static_cast<short>(LOWORD(lparam))),
+        static_cast<int>(static_cast<short>(HIWORD(lparam)))
+    };
+    return PtInRect(&thumb, point) != FALSE;
+}
+
+LRESULT CALLBACK slider_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+    if (slider_blocked()) {
+        switch (message) {
+            case WM_LBUTTONDOWN:
+            case WM_LBUTTONDBLCLK:
+            case WM_LBUTTONUP:
+            case WM_MOUSEWHEEL:
+            case WM_KEYDOWN:
+            case WM_KEYUP:
+                return 0;
+            case WM_MOUSEMOVE:
+                if ((wparam & MK_LBUTTON) != 0) {
+                    return 0;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+    switch (message) {
+        case WM_LBUTTONDOWN:
+        case WM_LBUTTONDBLCLK:
+            if (!point_on_thumb(hwnd, lparam)) {
+                return 0;
+            }
+            break;
+        case WM_MOUSEWHEEL:
+        case WM_KEYDOWN:
+        case WM_KEYUP:
+            return 0;
+        default:
+            break;
+    }
+    return CallWindowProcW(g_slider_proc, hwnd, message, wparam, lparam);
 }
 
 void apply_settings_to_ui() {
@@ -570,7 +699,13 @@ void compute_map(bool combat, bool speak) {
         update_elevation_labels();
         sync_overlay();
     }
-    set_status(g_app.map.distance ? "" : "표식 없음");
+    if (g_app.map.distance) {
+        set_status("");
+    } else if (!g_app.map.player || !g_app.map.mark) {
+        set_status("표식 없음");
+    } else {
+        set_status("격자 없음");
+    }
 }
 
 cv::Mat capture_game() {
@@ -847,7 +982,7 @@ void update_overlay_place(const OverlayAnchor& anchor) {
     } else if (!anchor.shown) {
         text = utf8_to_wide("오버레이: 게임 창 없음");
     } else {
-        text = utf8_to_wide("오버레이: 게임 화면 왼쪽 위  ") +
+        text = utf8_to_wide("오버레이: 왼쪽 위  ") +
             std::to_wstring(anchor.x) + L"," + std::to_wstring(anchor.y) +
             L"  " + std::to_wstring(anchor.width) + L"x" + std::to_wstring(anchor.height);
     }
@@ -876,35 +1011,53 @@ void bind_hotkeys() {
 }
 
 void create_controls() {
-    g_app.map_view = make_preview(8, 8, 400, 200);
-    g_app.elevation_view = make_preview(416, 8, 96, 200);
+    HWND pane = CreateWindowExW(
+        0,
+        L"PubgMortarPane",
+        L"",
+        WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
+        kPaneX,
+        46,
+        kPaneW,
+        kClientH - 54,
+        g_app.window,
+        nullptr,
+        g_app.instance,
+        nullptr
+    );
+    g_app.map_view = make_preview(kMapX, kMapY, kMapW, kMapH);
+    g_app.elevation_view = make_preview(kElevX, kMapY, kElevW, kElevH);
 
-    add_utf8(-1, L"STATIC", "지도", SS_LEFT, 8, 214, 70, 18, 0);
-    add_utf8(-1, L"STATIC", "격자", SS_LEFT, 8, 232, 70, 18, 0);
-    add_utf8(-1, L"STATIC", "없음", SS_LEFT, 78, 232, 140, 18, IDC_MAP_GAP);
-    add_utf8(-1, L"STATIC", "플레이어", SS_LEFT, 8, 250, 70, 18, 0);
-    add_utf8(-1, L"STATIC", "없음", SS_LEFT, 78, 250, 140, 18, IDC_MAP_PLAYER);
-    add_utf8(-1, L"STATIC", "마커", SS_LEFT, 8, 268, 70, 18, 0);
-    add_utf8(-1, L"STATIC", "없음", SS_LEFT, 78, 268, 140, 18, IDC_MAP_MARK);
-    add_utf8(-1, L"STATIC", "거리", SS_LEFT, 8, 286, 70, 18, 0);
-    add_utf8(-1, L"STATIC", "없음", SS_LEFT, 78, 286, 140, 18, IDC_MAP_DIST);
-    add_utf8(-1, L"STATIC", "미니맵", SS_LEFT, 8, 304, 70, 18, 0);
-    add_utf8(-1, L"STATIC", "없음", SS_LEFT, 78, 304, 140, 18, IDC_MAP_MINI);
+    auto title = [](const char* text, int x, int y, int width) {
+        HWND hwnd = add_utf8(-1, L"STATIC", text, SS_LEFT | SS_CENTERIMAGE, x, y, width, 22, 0);
+        SendMessageW(hwnd, WM_SETFONT, reinterpret_cast<WPARAM>(g_title_font), TRUE);
+    };
+    title("지도 정보", 8, kInfoY, 200);
+    add_utf8(-1, L"STATIC", "격자", SS_LEFT | SS_CENTERIMAGE, 8, kInfoY + 24, 88, 22, 0);
+    add_utf8(-1, L"STATIC", "없음", SS_LEFT | SS_CENTERIMAGE, 100, kInfoY + 24, 120, 22, IDC_MAP_GAP);
+    add_utf8(-1, L"STATIC", "플레이어", SS_LEFT | SS_CENTERIMAGE, 8, kInfoY + 46, 88, 22, 0);
+    add_utf8(-1, L"STATIC", "없음", SS_LEFT | SS_CENTERIMAGE, 100, kInfoY + 46, 120, 22, IDC_MAP_PLAYER);
+    add_utf8(-1, L"STATIC", "마커", SS_LEFT | SS_CENTERIMAGE, 8, kInfoY + 68, 88, 22, 0);
+    add_utf8(-1, L"STATIC", "없음", SS_LEFT | SS_CENTERIMAGE, 100, kInfoY + 68, 120, 22, IDC_MAP_MARK);
+    add_utf8(-1, L"STATIC", "거리", SS_LEFT | SS_CENTERIMAGE, 8, kInfoY + 90, 88, 22, 0);
+    add_utf8(-1, L"STATIC", "없음", SS_LEFT | SS_CENTERIMAGE, 100, kInfoY + 90, 120, 22, IDC_MAP_DIST);
+    add_utf8(-1, L"STATIC", "미니맵", SS_LEFT | SS_CENTERIMAGE, 8, kInfoY + 112, 88, 22, 0);
+    add_utf8(-1, L"STATIC", "없음", SS_LEFT | SS_CENTERIMAGE, 100, kInfoY + 112, 120, 22, IDC_MAP_MINI);
 
-    add_utf8(-1, L"STATIC", "고도", SS_LEFT, 230, 214, 70, 18, 0);
-    add_utf8(-1, L"STATIC", "마커", SS_LEFT, 230, 232, 52, 18, 0);
-    add_utf8(-1, L"STATIC", "없음", SS_LEFT, 286, 232, 210, 18, IDC_ELEV_MARK);
-    add_utf8(-1, L"STATIC", "고도", SS_LEFT, 230, 250, 52, 18, 0);
-    add_utf8(-1, L"STATIC", "없음", SS_LEFT, 286, 250, 210, 18, IDC_ELEV_HEIGHT);
-    add_utf8(-1, L"STATIC", "거리", SS_LEFT, 230, 268, 52, 18, 0);
-    add_utf8(-1, L"STATIC", "없음", SS_LEFT, 286, 268, 210, 18, IDC_ELEV_DIST);
-    add_utf8(-1, L"STATIC", "사거리", SS_LEFT, 230, 286, 52, 18, 0);
-    add_utf8(-1, L"STATIC", "없음", SS_LEFT, 286, 286, 210, 18, IDC_ELEV_MORTAR);
-    add_utf8(-1, L"STATIC", "", SS_LEFT, 8, 328, 500, 18, IDC_STATUS);
-    add_utf8(-1, L"STATIC", "단축키: 아직 안 눌림", SS_LEFT, 8, 348, 500, 18, IDC_KEY_FEEDBACK);
-    add_utf8(-1, L"STATIC", "오버레이: 확인 중", SS_LEFT, 8, 368, 500, 18, IDC_OVERLAY_PLACE);
+    title("고도 정보", 230, kInfoY, 200);
+    add_utf8(-1, L"STATIC", "마커", SS_LEFT | SS_CENTERIMAGE, 230, kInfoY + 24, 72, 22, 0);
+    add_utf8(-1, L"STATIC", "없음", SS_LEFT | SS_CENTERIMAGE, 306, kInfoY + 24, 130, 22, IDC_ELEV_MARK);
+    add_utf8(-1, L"STATIC", "고도", SS_LEFT | SS_CENTERIMAGE, 230, kInfoY + 46, 72, 22, 0);
+    add_utf8(-1, L"STATIC", "없음", SS_LEFT | SS_CENTERIMAGE, 306, kInfoY + 46, 130, 22, IDC_ELEV_HEIGHT);
+    add_utf8(-1, L"STATIC", "거리", SS_LEFT | SS_CENTERIMAGE, 230, kInfoY + 68, 72, 22, 0);
+    add_utf8(-1, L"STATIC", "없음", SS_LEFT | SS_CENTERIMAGE, 306, kInfoY + 68, 130, 22, IDC_ELEV_DIST);
+    add_utf8(-1, L"STATIC", "사거리", SS_LEFT | SS_CENTERIMAGE, 230, kInfoY + 90, 72, 22, 0);
+    add_utf8(-1, L"STATIC", "없음", SS_LEFT | SS_CENTERIMAGE, 306, kInfoY + 90, 130, 22, IDC_ELEV_MORTAR);
+    add_utf8(-1, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, 8, 348, 500, 22, IDC_STATUS);
+    add_utf8(-1, L"STATIC", "단축키: 아직 안 눌림", SS_LEFT | SS_CENTERIMAGE, 8, 370, 500, 22, IDC_KEY_FEEDBACK);
+    add_utf8(-1, L"STATIC", "오버레이: 확인 중", SS_LEFT | SS_CENTERIMAGE, 8, 392, 500, 22, IDC_OVERLAY_PLACE);
 
-    HWND tab = add_widget(-1, WC_TABCONTROLW, L"", WS_CLIPSIBLINGS, kPaneX, 8, 360, 28, IDC_TAB);
+    HWND tab = add_widget(-1, WC_TABCONTROLW, L"", WS_CLIPSIBLINGS | TCS_TABS, kPaneX, 8, kPaneW, 36, IDC_TAB);
     const char* names[] = {"일반", "격자", "마커", "고도", "미니맵", "음성", "오버레이"};
     for (int i = 0; i < 7; ++i) {
         std::wstring label = utf8_to_wide(names[i]);
@@ -914,65 +1067,70 @@ void create_controls() {
         SendMessageW(tab, TCM_INSERTITEMW, i, reinterpret_cast<LPARAM>(&item));
     }
 
-    add_utf8(0, L"BUTTON", "디버그", BS_AUTOCHECKBOX, kPaneX + 8, 42, 120, 22, IDC_DEBUG);
-    add_utf8(0, L"STATIC", "거리 단축키", SS_LEFT | SS_CENTERIMAGE, kPaneX + 8, 70, 96, 22, 0);
-    add_widget(0, L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, kPaneX + 108, 68, 120, 22, IDC_HOTKEY_MAP);
-    add_utf8(0, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, kPaneX + 232, 68, 110, 22, IDC_HK_MAP_STATE);
-    add_utf8(0, L"STATIC", "고도 단축키", SS_LEFT | SS_CENTERIMAGE, kPaneX + 8, 98, 96, 22, 0);
-    add_widget(0, L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, kPaneX + 108, 96, 120, 22, IDC_HOTKEY_ELEV);
-    add_utf8(0, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, kPaneX + 232, 96, 110, 22, IDC_HK_ELEV_STATE);
-    add_utf8(0, L"STATIC", "일괄 단축키", SS_LEFT | SS_CENTERIMAGE, kPaneX + 8, 126, 96, 22, 0);
-    add_widget(0, L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, kPaneX + 108, 124, 120, 22, IDC_HOTKEY_BOTH);
-    add_utf8(0, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, kPaneX + 232, 124, 110, 22, IDC_HK_BOTH_STATE);
-    add_utf8(0, L"STATIC", "창 제목", SS_LEFT | SS_CENTERIMAGE, kPaneX + 8, 154, 88, 22, 0);
-    add_widget(0, L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, kPaneX + 100, 152, 140, 22, IDC_TITLE);
+    add_utf8(0, L"BUTTON", "디버그", BS_AUTOCHECKBOX, kPaneX + 12, 48, 160, 24, IDC_DEBUG);
+    add_utf8(0, L"STATIC", "거리 단축키", SS_LEFT | SS_CENTERIMAGE, kPaneX + 12, 80, 120, 24, 0);
+    add_widget(0, L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, kPaneX + 136, 78, 140, 26, IDC_HOTKEY_MAP);
+    add_utf8(0, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, kPaneX + 284, 78, 120, 24, IDC_HK_MAP_STATE);
+    add_utf8(0, L"STATIC", "고도 단축키", SS_LEFT | SS_CENTERIMAGE, kPaneX + 12, 112, 120, 24, 0);
+    add_widget(0, L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, kPaneX + 136, 110, 140, 26, IDC_HOTKEY_ELEV);
+    add_utf8(0, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, kPaneX + 284, 110, 120, 24, IDC_HK_ELEV_STATE);
+    add_utf8(0, L"STATIC", "일괄 단축키", SS_LEFT | SS_CENTERIMAGE, kPaneX + 12, 144, 120, 24, 0);
+    add_widget(0, L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, kPaneX + 136, 142, 140, 26, IDC_HOTKEY_BOTH);
+    add_utf8(0, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, kPaneX + 284, 142, 120, 24, IDC_HK_BOTH_STATE);
+    add_utf8(0, L"STATIC", "창 제목", SS_LEFT | SS_CENTERIMAGE, kPaneX + 12, 176, 120, 24, 0);
+    add_widget(0, L"EDIT", L"", WS_BORDER | ES_AUTOHSCROLL, kPaneX + 136, 174, 180, 26, IDC_TITLE);
 
-    add_utf8(1, L"BUTTON", "처리 결과", BS_AUTOCHECKBOX, kPaneX + 8, 42, 140, 22, IDC_GRID_PROCESSED);
-    add_utf8(1, L"BUTTON", "격자", BS_AUTOCHECKBOX, kPaneX + 160, 42, 100, 22, IDC_DRAW_GRID);
-    add_slider(1, IDC_CANNY1, "캐니 1", 70, 0, 100);
-    add_slider(1, IDC_CANNY2, "캐니 2", 98, 0, 100);
-    add_slider(1, IDC_LINE_TH, "선 임계값", 126, 20, 100);
-    add_slider(1, IDC_LINE_GAP, "선 간격", 154, 0, 100);
-    add_slider(1, IDC_MERGE, "병합", 182, 0, 50);
+    add_utf8(1, L"BUTTON", "처리 결과", BS_AUTOCHECKBOX, kPaneX + 12, 48, 150, 24, IDC_GRID_PROCESSED);
+    add_utf8(1, L"BUTTON", "격자 표시", BS_AUTOCHECKBOX, kPaneX + 180, 48, 150, 24, IDC_DRAW_GRID);
+    add_slider(1, IDC_CANNY1, "흐린 선", 84, 0, 100);
+    add_slider(1, IDC_CANNY2, "진한 선", 118, 0, 100);
+    add_slider(1, IDC_LINE_TH, "짧은 선 빼기", 152, 20, 100);
+    add_slider(1, IDC_LINE_GAP, "끊긴 선 잇기", 186, 0, 100);
+    add_slider(1, IDC_MERGE, "겹친 선 합치기", 220, 0, 50);
 
-    add_utf8(2, L"BUTTON", "마커", BS_AUTOCHECKBOX, kPaneX + 8, 42, 100, 22, IDC_DRAW_MARKS);
-    add_utf8(2, L"BUTTON", "처리 결과", BS_AUTOCHECKBOX, kPaneX + 120, 42, 120, 22, IDC_MARK_PROCESSED);
-    add_utf8(2, L"BUTTON", "지점 확대", BS_AUTOCHECKBOX, kPaneX + 8, 66, 110, 22, IDC_ZOOM);
-    add_utf8(2, L"BUTTON", "YOLO", BS_AUTOCHECKBOX, kPaneX + 120, 66, 80, 22, IDC_YOLO);
-    add_utf8(2, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, kPaneX + 210, 66, 90, 22, IDC_YOLO_HINT);
-    add_utf8(2, L"STATIC", "색상", SS_LEFT | SS_CENTERIMAGE, kPaneX + 8, 94, 50, 22, 0);
-    HWND colors = add_widget(2, L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL, kPaneX + 60, 92, 100, 160, IDC_COLOR);
+    add_utf8(2, L"BUTTON", "마커 표시", BS_AUTOCHECKBOX, kPaneX + 12, 48, 140, 24, IDC_DRAW_MARKS);
+    add_utf8(2, L"BUTTON", "처리 결과", BS_AUTOCHECKBOX, kPaneX + 170, 48, 140, 24, IDC_MARK_PROCESSED);
+    add_utf8(2, L"BUTTON", "지점 확대", BS_AUTOCHECKBOX, kPaneX + 12, 76, 160, 24, IDC_ZOOM);
+    add_utf8(2, L"BUTTON", "YOLO", BS_AUTOCHECKBOX, kPaneX + 180, 76, 140, 24, IDC_YOLO);
+    add_utf8(2, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, kPaneX + 330, 76, 120, 24, IDC_YOLO_HINT);
+    add_utf8(2, L"STATIC", "색상", SS_LEFT | SS_CENTERIMAGE, kPaneX + 12, 108, 60, 24, 0);
+    HWND colors = add_widget(2, L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_VSCROLL, kPaneX + 76, 106, 120, 160, IDC_COLOR);
     const char* color_labels[] = {"주황", "노랑", "파랑", "초록"};
     for (const char* label : color_labels) {
         std::wstring wide = utf8_to_wide(label);
         SendMessageW(colors, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(wide.c_str()));
     }
-    add_slider(2, IDC_MIN_R, "최소 반지름", 124, 0, 50);
-    add_slider(2, IDC_MAX_R, "최대 반지름", 152, 5, 50);
-    add_utf8(2, L"BUTTON", "지도 열기", BS_PUSHBUTTON, kPaneX + 8, 186, 140, 24, IDC_LOAD_MAP);
+    add_slider(2, IDC_MIN_R, "최소 반지름", 140, 0, 50);
+    add_slider(2, IDC_MAX_R, "최대 반지름", 174, 5, 50);
+    add_utf8(2, L"BUTTON", "지도 열기", BS_PUSHBUTTON, kPaneX + 12, 214, 160, 28, IDC_LOAD_MAP);
 
-    add_utf8(3, L"BUTTON", "지점", BS_AUTOCHECKBOX, kPaneX + 8, 42, 100, 22, IDC_ELEV_POINTS);
-    add_utf8(3, L"BUTTON", "처리 결과", BS_AUTOCHECKBOX, kPaneX + 120, 42, 140, 22, IDC_ELEV_PROCESSED);
-    add_slider(3, IDC_FOV, "시야각", 74, 80, 103);
-    add_utf8(3, L"BUTTON", "고도 열기", BS_PUSHBUTTON, kPaneX + 8, 112, 140, 24, IDC_LOAD_ELEV);
+    add_utf8(3, L"BUTTON", "지점 표시", BS_AUTOCHECKBOX, kPaneX + 12, 48, 150, 24, IDC_ELEV_POINTS);
+    add_utf8(3, L"BUTTON", "처리 결과", BS_AUTOCHECKBOX, kPaneX + 180, 48, 140, 24, IDC_ELEV_PROCESSED);
+    add_slider(3, IDC_FOV, "시야각", 84, 80, 103);
+    add_utf8(3, L"BUTTON", "고도 열기", BS_PUSHBUTTON, kPaneX + 12, 128, 160, 28, IDC_LOAD_ELEV);
 
-    add_utf8(4, L"BUTTON", "사용", BS_AUTOCHECKBOX, kPaneX + 8, 42, 80, 22, IDC_MINI);
-    add_utf8(4, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, kPaneX + 96, 42, 120, 22, IDC_MINI_HINT);
-    add_slider(4, IDC_MINI_OFFSET, "오프셋", 74, 0, 1000);
-    add_slider(4, IDC_MINI_SMALL, "소형", 102, 100, 1000);
-    add_slider(4, IDC_MINI_LARGE, "대형", 130, 100, 1000);
+    add_utf8(4, L"BUTTON", "미니맵 사용", BS_AUTOCHECKBOX, kPaneX + 12, 48, 160, 24, IDC_MINI);
+    add_utf8(4, L"STATIC", "", SS_LEFT | SS_CENTERIMAGE, kPaneX + 180, 48, 160, 24, IDC_MINI_HINT);
+    add_slider(4, IDC_MINI_OFFSET, "오프셋", 84, 0, 1000);
+    add_slider(4, IDC_MINI_SMALL, "소형 크기", 118, 100, 1000);
+    add_slider(4, IDC_MINI_LARGE, "대형 크기", 152, 100, 1000);
 
-    add_utf8(5, L"BUTTON", "음성", BS_AUTOCHECKBOX, kPaneX + 8, 42, 120, 22, IDC_VOICE);
-    add_slider(5, IDC_VOLUME, "음량", 74, 0, 100);
-    add_slider(5, IDC_RATE, "속도", 102, 50, 300);
+    add_utf8(5, L"BUTTON", "음성", BS_AUTOCHECKBOX, kPaneX + 12, 48, 180, 24, IDC_VOICE);
+    add_slider(5, IDC_VOLUME, "음량", 84, 0, 100);
+    add_slider(5, IDC_RATE, "속도", 118, 50, 300);
 
-    add_utf8(6, L"BUTTON", "사용", BS_AUTOCHECKBOX, kPaneX + 8, 42, 70, 22, IDC_OV_USE);
-    add_utf8(6, L"BUTTON", "캡처에 숨김", BS_AUTOCHECKBOX, kPaneX + 88, 42, 120, 22, IDC_OV_ENABLED);
-    add_utf8(6, L"BUTTON", "테두리", BS_AUTOCHECKBOX, kPaneX + 240, 42, 90, 22, IDC_OV_BORDER);
-    add_utf8(6, L"BUTTON", "지도 마커", BS_AUTOCHECKBOX, kPaneX + 8, 66, 140, 22, IDC_OV_MAP);
-    add_utf8(6, L"BUTTON", "고도 마커", BS_AUTOCHECKBOX, kPaneX + 160, 66, 140, 22, IDC_OV_ELEV);
-    add_utf8(6, L"BUTTON", "미니맵 영역", BS_AUTOCHECKBOX, kPaneX + 8, 90, 160, 22, IDC_OV_MINI);
-    add_slider(6, IDC_OV_SCALE, "배율", 122, 50, 250);
+    add_utf8(6, L"BUTTON", "사용", BS_AUTOCHECKBOX, kPaneX + 12, 48, 150, 24, IDC_OV_USE);
+    add_utf8(6, L"BUTTON", "캡처에 숨김", BS_AUTOCHECKBOX, kPaneX + 180, 48, 160, 24, IDC_OV_ENABLED);
+    add_utf8(6, L"BUTTON", "테두리", BS_AUTOCHECKBOX, kPaneX + 360, 48, 120, 24, IDC_OV_BORDER);
+    add_utf8(6, L"BUTTON", "지도 마커", BS_AUTOCHECKBOX, kPaneX + 12, 78, 150, 24, IDC_OV_MAP);
+    add_utf8(6, L"BUTTON", "고도 마커", BS_AUTOCHECKBOX, kPaneX + 180, 78, 150, 24, IDC_OV_ELEV);
+    add_utf8(6, L"BUTTON", "미니맵 영역", BS_AUTOCHECKBOX, kPaneX + 12, 108, 180, 24, IDC_OV_MINI);
+    add_slider(6, IDC_OV_SCALE, "배율", 146, 50, 250);
+    add_utf8(-1, L"STATIC", "", SS_LEFT, kPaneX + 12, 260, kPaneW - 24, 40, IDC_TAB_HINT);
+    set_tab_hint(0);
+    place_tab_hint(0);
+    SetWindowPos(pane, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    SetWindowPos(tab, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 void refresh_from_control(int id) {
@@ -1026,6 +1184,13 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
         case WM_HSCROLL: {
             auto bar = reinterpret_cast<HWND>(lparam);
             const int id = GetDlgCtrlID(bar);
+            if (slider_blocked()) {
+                const auto saved = g_slider_committed.find(id);
+                if (saved != g_slider_committed.end()) {
+                    set_slider(id, saved->second);
+                }
+                return 0;
+            }
             update_slider_label(id);
             const int code = LOWORD(wparam);
             if (code == TB_ENDTRACK || code == TB_LINEUP || code == TB_LINEDOWN || code == TB_PAGEUP || code == TB_PAGEDOWN) {
@@ -1044,15 +1209,33 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lpar
                 update_overlay_place(g_app.overlay.follow(g_app.settings.window_title));
             }
             return 0;
-        case WM_CTLCOLORSTATIC: {
-            const int id = GetDlgCtrlID(reinterpret_cast<HWND>(lparam));
-            COLORREF color = RGB(235, 235, 235);
+        case WM_CTLCOLORSTATIC:
+        case WM_CTLCOLORBTN: {
+            auto control = reinterpret_cast<HWND>(lparam);
+            auto hdc = reinterpret_cast<HDC>(wparam);
+            const int id = GetDlgCtrlID(control);
+            COLORREF text = kText;
             if (id == IDC_KEY_FEEDBACK) {
-                color = g_app.key_recognized ? RGB(80, 220, 120) : RGB(255, 196, 80);
+                text = g_app.key_recognized ? RGB(80, 220, 120) : RGB(255, 196, 80);
+            } else if (id == IDC_TAB_HINT) {
+                text = kHint;
+            } else if (!IsWindowEnabled(control)) {
+                text = RGB(150, 150, 150);
             }
-            SetTextColor(reinterpret_cast<HDC>(wparam), color);
-            SetBkColor(reinterpret_cast<HDC>(wparam), RGB(32, 32, 32));
-            return reinterpret_cast<LRESULT>(g_dark);
+            RECT rc{};
+            GetWindowRect(control, &rc);
+            MapWindowPoints(HWND_DESKTOP, hwnd, reinterpret_cast<POINT*>(&rc), 2);
+            const bool on_panel = rc.left >= kPaneX;
+            SetTextColor(hdc, text);
+            SetBkColor(hdc, on_panel ? kPanel : kBg);
+            return reinterpret_cast<LRESULT>(on_panel ? g_panel : g_dark);
+        }
+        case WM_CTLCOLOREDIT:
+        case WM_CTLCOLORLISTBOX: {
+            auto hdc = reinterpret_cast<HDC>(wparam);
+            SetTextColor(hdc, kText);
+            SetBkColor(hdc, kField);
+            return reinterpret_cast<LRESULT>(g_field);
         }
         case WM_DESTROY:
             PostQuitMessage(0);
@@ -1107,11 +1290,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     }
 
     g_font = CreateFontW(
-        14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, HANGUL_CHARSET,
+        16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, HANGUL_CHARSET,
         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
         DEFAULT_PITCH | FF_DONTCARE, L"Malgun Gothic"
     );
-    g_dark = CreateSolidBrush(RGB(32, 32, 32));
+    g_title_font = CreateFontW(
+        16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE, HANGUL_CHARSET,
+        OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE, L"Malgun Gothic"
+    );
+    g_dark = CreateSolidBrush(kBg);
+    g_panel = CreateSolidBrush(kPanel);
+    g_field = CreateSolidBrush(kField);
 
     WNDCLASSW preview_class{};
     preview_class.lpfnWndProc = preview_proc;
@@ -1120,6 +1310,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     preview_class.hbrBackground = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
     preview_class.lpszClassName = L"PubgMortarPreview";
     RegisterClassW(&preview_class);
+
+    WNDCLASSW pane_class{};
+    pane_class.lpfnWndProc = DefWindowProcW;
+    pane_class.hInstance = instance;
+    pane_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    pane_class.hbrBackground = g_panel;
+    pane_class.lpszClassName = L"PubgMortarPane";
+    RegisterClassW(&pane_class);
 
     WNDCLASSEXW window_class{};
     window_class.cbSize = sizeof(window_class);
@@ -1132,15 +1330,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     window_class.hIconSm = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, 16, 16, LR_SHARED));
     RegisterClassExW(&window_class);
 
+    const DWORD window_style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN;
+    RECT bounds{0, 0, kClientW, kClientH};
+    AdjustWindowRectEx(&bounds, window_style, FALSE, 0);
     g_app.window = CreateWindowExW(
         0,
         L"PubgMortarPanel",
         utf8_to_wide("PUBG 박격포 계산기").c_str(),
-        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+        window_style,
         40,
         40,
-        900,
-        520,
+        bounds.right - bounds.left,
+        bounds.bottom - bounds.top,
         nullptr,
         nullptr,
         instance,
