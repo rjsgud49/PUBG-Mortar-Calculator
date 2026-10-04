@@ -1,6 +1,7 @@
 # PUBG Mortar Calculator
 
 A tool to calculate the range of a shot for mortar in PUBG.
++ c++ ver add
 
 ## Features
 
